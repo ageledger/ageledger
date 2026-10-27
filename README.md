@@ -16,15 +16,11 @@ provide, and keeps a **minimal local log of the decisions the app made**.
 dotnet add package Ageledger --prerelease
 ```
 
-Package page: <https://www.nuget.org/packages/Ageledger>.
-
 (or `--version 0.1.0-preview.1` to pin it). Add it to the app project. For tests, add the fakes to a test project only, on the same version:
 
 ```
 dotnet add package Ageledger.Testing --prerelease
 ```
-
-Package page: <https://www.nuget.org/packages/Ageledger.Testing>.
 
 Keep `Ageledger` and `Ageledger.Testing` on the same version: `Ageledger.Testing` depends on exactly the `Ageledger` version it was built with.
 
@@ -222,7 +218,7 @@ iOS Simulator (headless, iOS 26.5; these runs predate the sample's scene adoptio
 ## Unverified
 
 - Replacing the workload-generated dSYM with the shipped one has not been tried.
-- Hosted CI and the release, as far as they have run (2026-10-27): the first GitHub-hosted CI run on `main` passed (`build-test` on the `xcode-27` image with Xcode 27.1; unit tests 480/480; release-push self-test 19/19; documentation link checks; package checks: 0 public binding types, 76 PDB document names in 3 PDBs, 2 dSYMs). `release.yml` ran once, for tag `v0.1.0-preview.1` (run 40601712391): `ci` and `build` passed, the publish job waited for the `release` environment's approval and was approved, and NuGet/login with trusted publishing then pushed `Ageledger` and `Ageledger.Testing`. Each push reported "Your package was pushed" four times, for the two `.nupkg` and their two `.snupkg`, so pushing the `.snupkg` with the trusted-publishing key worked as part of `dotnet nuget push` of the `.nupkg`. Both versions were listed on nuget.org at about 19:36 ET.
+- Hosted CI and the release, as far as they have run (2026-10-27): the first GitHub-hosted CI run on `main` passed (`build-test` on the `xcode-27` image with Xcode 27.1; unit tests 480/480; release-push self-test 19/19; documentation link checks; package checks: 0 public binding types, 76 PDB document names in 3 PDBs, 2 dSYMs). `release.yml` ran once, for tag `v0.1.0-preview.1` (run 40601712391): `ci` and `build` passed, the publish job waited for the `release` environment's approval and was approved, and NuGet/login with trusted publishing then pushed `Ageledger` and `Ageledger.Testing`. The two pushes reported "Your package was pushed" four times in total: once for each `.nupkg` and once for each `.snupkg`. So pushing the `.snupkg` with the trusted-publishing key worked as part of `dotnet nuget push` of the `.nupkg`. Both versions were listed on nuget.org at about 19:36 ET.
 - Not exercised in that release: finishing a half-finished release by hand (the "half way" route in CONTRIBUTING); the "already exists" message of the push script, which keys on the `Response status code does not indicate success: 409 (...)` text that comes from the NuGet.Client and .NET runtime sources and has not been observed from nuget.org; and any re-run of the release workflow (including whether a re-run attempt can upload an artifact under the same name). The release has no automatic recovery. Pushing a `.snupkg` on its own by hand, and whether a "Push only new package versions" key is accepted for it, has not been tried.
 - Whether any released .NET iOS workload copies these dSYMs into an app's archive.
 - No crash inside the Swift wrapper has been symbolicated with the shipped dSYMs; only `atos` on the dSYM against a wrapper function was checked.
