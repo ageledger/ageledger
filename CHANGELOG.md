@@ -42,4 +42,4 @@ This is a preview. The "Unverified" list in `README.md` is the full list; in sho
 - iPhone: one device, one OS version (iOS 27.0.1), the Apple sandbox account only. No consent sheet was answered or declined and no real (non-sandbox) account was used.
 - iOS Simulator: returns Unavailable only, so no real age range was observed there.
 - Android: only the sideloaded `NotShared` path of the real Play manager and Google's fakes; no real age signal.
-- The hosted CI and the nuget.org release workflow had not run when this version was prepared.
+- The release workflow ran once, for this version, and the first hosted CI run passed. Not exercised: the manual "half way" recovery route, the 409 "already exists" wording from nuget.org, and any re-run of the release workflow.
