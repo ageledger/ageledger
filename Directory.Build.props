@@ -1,0 +1,20 @@
+<Project>
+  <!-- Builds are deterministic and carry no machine paths: the repository root is mapped to /_/ in PDBs, SourceLink data and compiler output. -->
+  <PropertyGroup>
+    <Authors>Priyanka Bukka</Authors>
+    <Copyright>Copyright 2026 Priyanka Bukka and contributors</Copyright>
+  </PropertyGroup>
+  <PropertyGroup>
+    <!-- One version for every package (Ageledger and Ageledger.Testing, which depends on exactly the same Ageledger version, written "[version]" in its nuspec).
+         A release overrides it on the command line with -p:Version=... (a global property wins over this line; an environment variable does not) -->
+    <Version>0.1.0-preview.1</Version>
+  </PropertyGroup>
+  <PropertyGroup>
+    <Deterministic>true</Deterministic>
+    <!-- Path mapping applies to Release only: Debug keeps real paths for local debugging; packs are Release (dotnet pack default and CI).
+         DeterministicSourcePaths also maps the source roots (SourceLink document keys), which the SDK otherwise does only on CI builds. -->
+    <DeterministicSourcePaths Condition="'$(Configuration)' == 'Release'">true</DeterministicSourcePaths>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true' or '$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+    <PathMap Condition="'$(Configuration)' == 'Release'">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)'))=/_/</PathMap>
+  </PropertyGroup>
+</Project>

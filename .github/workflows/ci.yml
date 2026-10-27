@@ -1,0 +1,135 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Called by release.yml so a release runs exactly these checks.
+  workflow_call:
+
+permissions:
+  contents: read
+
+# release.yml calls this workflow, so release.yml must never define a concurrency group named "ci-${{ github.ref }}":
+# the caller's group and this one would be the same and the run would cancel itself.
+# A newer push to the same pull request cancels the older run (pushes to main are never cancelled).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build-test:
+    # GitHub-hosted macOS arm64 image with Xcode 27 (label xcode-27, listed in the actions/runner-images README, checked
+    # 2026-10-27; it is a preview image, so check that the label still exists when it changes). The composite action
+    # selects Xcode and installs the .NET SDK, the workload and JDK 17. Keep this job short and headless: no simulators,
+    # devices or GUI work in CI.
+    runs-on: xcode-27
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up the toolchain
+        uses: ./.github/actions/setup-hosted-toolchain
+      - name: Show which Xcode is used
+        run: |
+          xcodebuild -version
+          xcrun --show-sdk-path
+      - name: Locate the Android SDK
+        run: |
+          if [ -z "${ANDROID_HOME:-}" ] || [ ! -d "$ANDROID_HOME" ]; then
+            echo "::error::ANDROID_HOME is not set or does not exist on this runner image."
+            exit 1
+          fi
+          echo "ANDROID_SDK_DIR=$ANDROID_HOME" >> "$GITHUB_ENV"
+      - name: Check the .NET SDK
+        run: dotnet --version
+      - name: Unit tests (platform-neutral target, fakes from Ageledger.Testing for both platforms)
+        run: dotnet test tests/Ageledger.Tests -c Release -p:CoreOnly=true
+      # Negative control for the doc-link check that the package steps below rely on: it must reject a link to an internal overload
+      # and accept the public one (uses the test-only type in PackageDocsTests).
+      - name: Check that the doc-link check rejects an internal overload
+        run: scripts/ci/selftest-crefs.sh tests/Ageledger.Tests/bin/Release/net10.0/Ageledger.Tests.dll
+      # Tests the release push logic (every row of its decision table, and how a 409 is recognised) with a fake dotnet; nothing is pushed.
+      - name: Test the release push script
+        run: scripts/ci/selftest-release-push.sh
+      # Compiles every target, including net10.0-android, net10.0-ios and the iOS binding (which builds the Swift
+      # wrapper in native/ios). Nothing is deployed or run.
+      - name: Build all targets
+        run: dotnet build Ageledger.slnx -c Release -p:AndroidSdkDirectory="$ANDROID_SDK_DIR"
+      # The checks (what the package must and must not contain, the machine-path scans, the dSYM checks) live in
+      # scripts/ci/check-packages.sh, which release.yml runs too.
+      - name: Pack and check the package
+        run: |
+          dotnet pack src/Ageledger -c Release -o "$RUNNER_TEMP/pkg" -p:AndroidSdkDirectory="$ANDROID_SDK_DIR"
+          scripts/ci/check-packages.sh main "$RUNNER_TEMP/pkg"
+      - name: Pack and check the Ageledger.Testing package
+        run: |
+          dotnet pack src/Ageledger.Testing -c Release -o "$RUNNER_TEMP/pkg-testing" -p:AndroidSdkDirectory="$ANDROID_SDK_DIR"
+          scripts/ci/check-packages.sh testing "$RUNNER_TEMP/pkg-testing" "$RUNNER_TEMP/pkg"
+      # The sample is not in the solution; building it checks that an app can consume the project (restore, link, bundle).
+      - name: Build the sample (Android)
+        run: |
+          dotnet build samples/AgeledgerSample -f net10.0-android -c Release -p:AndroidSdkDirectory="$ANDROID_SDK_DIR"
+          # The fakes belong to tests only: a Release app must neither contain nor even restore the Ageledger.Testing project reference.
+          fail=0
+          for needed in samples/AgeledgerSample/obj/project.assets.json samples/AgeledgerSample/bin/Release/net10.0-android/AgeledgerSample.dll; do
+            if [ ! -f "$needed" ]; then
+              echo "::error::$needed was not found, so the Release sample checks below would prove nothing."
+              exit 1
+            fi
+          done
+          if [ -e samples/AgeledgerSample/bin/Release/net10.0-android/Ageledger.Testing.dll ]; then
+            echo "::error::The Release sample output contains Ageledger.Testing.dll."
+            fail=1
+          fi
+          if grep -q 'Ageledger\.Testing' samples/AgeledgerSample/obj/project.assets.json; then
+            echo "::error::The sample's project.assets.json mentions Ageledger.Testing in a Release restore."
+            fail=1
+          fi
+          exit $fail
+      # The Debug sample also contains the on-device self-test (#if DEBUG); a Release build must not: the compiled sample
+      # assembly (checked as ASCII and UTF-16 text, any case) has to be free of the word. Only the Android Release build is scanned: the
+      # self-test sits behind #if DEBUG, which does not depend on the target framework, so it is an acceptable proxy for the iOS Release build too.
+      - name: Build the sample (Android, Debug) and check the Release sample has no self-test
+        run: |
+          dotnet build samples/AgeledgerSample -f net10.0-android -c Debug -p:AndroidSdkDirectory="$ANDROID_SDK_DIR"
+          # Positive control for the Release check above: the Debug build does use the fakes, so its output and restore must show them.
+          if [ ! -f samples/AgeledgerSample/bin/Debug/net10.0-android/Ageledger.Testing.dll ] || ! grep -q 'Ageledger\.Testing' samples/AgeledgerSample/obj/project.assets.json; then
+            echo "::error::The Debug sample does not show Ageledger.Testing, so the Release absence check proves nothing."
+            exit 1
+          fi
+          dll=samples/AgeledgerSample/bin/Release/net10.0-android/AgeledgerSample.dll
+          if [ ! -f "$dll" ]; then
+            echo "::error::The Release sample assembly was not found at $dll."
+            exit 1
+          fi
+          python3 -I - "$dll" <<'PY'
+          import sys
+          data = open(sys.argv[1], "rb").read().lower()
+          for needle in (b"selftest", "selftest".encode("utf-16-le")):
+              if needle in data:
+                  print("::error::The Release sample assembly contains the self-test.")
+                  sys.exit(1)
+          print("The Release sample assembly has no self-test.")
+          PY
+      # Compile check only: the runner user has no signing identity and a Simulator build needs none, so signing is off.
+      - name: Build the sample (iOS Simulator)
+        run: |
+          dotnet build samples/AgeledgerSample -f net10.0-ios -c Debug -p:RuntimeIdentifier=iossimulator-arm64 -p:EnableCodeSigning=false
+          # The app must not carry the wrapper's dSYM inside its Frameworks folder (symbols belong beside the app, not in it).
+          app=$(find samples/AgeledgerSample/bin/Debug/net10.0-ios/iossimulator-arm64 -name '*.app' -type d -prune | head -n 1)
+          if [ -z "$app" ]; then
+            echo "::error::The built iOS sample app was not found."
+            exit 1
+          fi
+          # The wrapper must be in the app, or the dSYM check below would pass on an app that has no wrapper at all.
+          if [ ! -f "$app/Frameworks/AgeledgerNative.framework/AgeledgerNative" ]; then
+            echo "::error::The wrapper binary is not in the built app's Frameworks folder."
+            exit 1
+          fi
+          # With the 26.5 workload this is a guard for future workloads: a release that copies xcframework dSYMs next to the framework must not bundle them into the app.
+          if find "$app/Frameworks" -name '*.dSYM' 2>/dev/null | grep -q .; then
+            echo "::error::A dSYM sits inside the built app's Frameworks folder."
+            exit 1
+          fi

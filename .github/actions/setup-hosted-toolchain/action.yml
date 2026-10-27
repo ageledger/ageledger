@@ -1,0 +1,59 @@
+name: Set up the toolchain on a GitHub-hosted macOS runner
+description: >-
+  Selects Xcode 27.1, installs the .NET SDK from global.json into a user-owned folder, the MAUI workload (pinned to a workload version)
+  and uses the image's JDK 17. The Android SDK is the one on the runner image ($ANDROID_HOME). Fails on any other kind of runner.
+
+inputs:
+  xcode-path:
+    description: Xcode app to select. Installed on the xcode-27 image (actions/runner-images, checked 2026-10-27).
+    default: /Applications/Xcode_27.1.app
+  workload-version:
+    description: Workload version passed to the workload install.
+    default: 10.0.300.3
+
+runs:
+  using: composite
+  steps:
+    - name: Check the runner
+      shell: bash
+      run: |
+        if [ "$RUNNER_ENVIRONMENT" != "github-hosted" ]; then
+          echo "::error::This action sets up a GitHub-hosted macOS runner image; RUNNER_ENVIRONMENT is '$RUNNER_ENVIRONMENT'."
+          exit 1
+        fi
+    - name: Select Xcode
+      shell: bash
+      env:
+        XCODE_PATH: ${{ inputs.xcode-path }}
+      run: |
+        if [ ! -d "$XCODE_PATH/Contents/Developer" ]; then
+          echo "::error::$XCODE_PATH does not exist on this runner image. Installed Xcode apps:"
+          ls -d /Applications/Xcode*.app || true
+          exit 1
+        fi
+        echo "DEVELOPER_DIR=$XCODE_PATH/Contents/Developer" >> "$GITHUB_ENV"
+        echo "MD_APPLE_SDK_ROOT=$XCODE_PATH" >> "$GITHUB_ENV"
+        DEVELOPER_DIR="$XCODE_PATH/Contents/Developer" xcodebuild -version
+    - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      env:
+        # A folder this job owns, so the workload install below writes to a user-owned SDK.
+        DOTNET_INSTALL_DIR: ${{ runner.temp }}/dotnet
+      with:
+        global-json-file: global.json
+    - name: Install the MAUI workload
+      shell: bash
+      env:
+        WORKLOAD_VERSION: ${{ inputs.workload-version }}
+      run: |
+        dotnet --version
+        dotnet workload install maui --version "$WORKLOAD_VERSION"
+        dotnet workload --version
+        dotnet workload list
+    - name: Use the image's JDK 17
+      shell: bash
+      run: |
+        if [ -z "${JAVA_HOME_17_arm64:-}" ] || [ ! -d "$JAVA_HOME_17_arm64" ]; then
+          echo "::error::JAVA_HOME_17_arm64 is not set or does not exist on this runner image."
+          exit 1
+        fi
+        echo "JAVA_HOME=$JAVA_HOME_17_arm64" >> "$GITHUB_ENV"

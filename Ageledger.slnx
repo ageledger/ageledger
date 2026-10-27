@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="src/Ageledger/Ageledger.csproj" />
+  <Project Path="src/Ageledger.Testing/Ageledger.Testing.csproj" />
+  <Project Path="src/Ageledger.IosBinding/Ageledger.IosBinding.csproj" />
+  <Project Path="tests/Ageledger.Tests/Ageledger.Tests.csproj" />
+</Solution>

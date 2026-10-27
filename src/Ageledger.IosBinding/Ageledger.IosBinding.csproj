@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-ios</TargetFramework>
+    <SupportedOSPlatformVersion>15.0</SupportedOSPlatformVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>true</ImplicitUsings>
+    <IsBindingProject>true</IsBindingProject>
+    <RootNamespace>Ageledger.Native</RootNamespace>
+    <!-- Relative on purpose: the item's path is written into the binding's resources manifest, so an absolute path would put the build machine's folders into the package. -->
+    <NativeDir>../../native/ios/</NativeDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The bound types are internal; only the Ageledger library uses them. -->
+    <InternalsVisibleTo Include="Ageledger" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ObjcBindingApiDefinition Include="ApiDefinition.cs" />
+    <ObjcBindingCoreSource Include="StructsAndEnums.cs" />
+    <NativeReference Include="$(NativeDir)AgeledgerNative.xcframework">
+      <Kind>Framework</Kind>
+      <SmartLink>True</SmartLink>
+    </NativeReference>
+  </ItemGroup>
+
+  <!-- Declared as an item so the glob expands; a wildcard written directly in a target's Inputs is treated as a literal path and never matches. -->
+  <ItemGroup>
+    <SwiftWrapperInput Include="$(NativeDir)Sources/**/*.swift;$(NativeDir)build.sh" />
+  </ItemGroup>
+
+  <!-- Builds the Swift wrapper into an xcframework (needs Xcode on a Mac). Runs again whenever a Swift source or build.sh is newer than the output. -->
+  <Target Name="BuildSwiftWrapper" BeforeTargets="ResolveNativeReferences;_ResolveNativeReferences;CoreCompile"
+          Inputs="@(SwiftWrapperInput)"
+          Outputs="$(NativeDir)AgeledgerNative.xcframework/Info.plist"
+          Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+    <Exec Command="&quot;$(NativeDir)build.sh&quot;" />
+  </Target>
+</Project>

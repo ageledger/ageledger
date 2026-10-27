@@ -1,0 +1,89 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net10.0;net10.0-android;net10.0-ios</TargetFrameworks>
+    <!-- CoreOnly=true builds just the platform-neutral target (CI on Linux, no mobile workloads needed). -->
+    <TargetFrameworks Condition="'$(CoreOnly)' == 'true'">net10.0</TargetFrameworks>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <Description>A neutral .NET API over Google Play Age Signals (Android) and Apple's Declared Age Range (iOS): the age range the platform shares, requestAgeRange, isEligibleForAgeFeatures, requiredRegulatoryFeatures and showSignificantUpdateAcknowledgment, plus a minimal local decision log that keeps five fields. Off by default. It supplies a platform signal and a log; it does not make an app compliant with any law and is not legal advice.</Description>
+    <PackageTags>maui;android;ios;age-signals;declared-age-range;play-age-signals</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageProjectUrl>https://github.com/ageledger/ageledger</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/ageledger/ageledger</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Every public member needs an XML doc comment. -->
+    <WarningsAsErrors>$(WarningsAsErrors);CS1591;CS1574;CS1580;CS1584;RS0016;RS0017</WarningsAsErrors>
+    <EnablePackageValidation>true</EnablePackageValidation>
+    <Nullable>enable</Nullable>
+    <IsAotCompatible>true</IsAotCompatible>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <!-- No Android resources of our own: skip the generated public Ageledger.Resource designer class, which would otherwise be public API. -->
+    <AndroidGenerateResourceDesigner Condition="$(TargetFramework.Contains('-android'))">false</AndroidGenerateResourceDesigner>
+    <SupportedOSPlatformVersion Condition="$(TargetFramework.Contains('-android'))">23.0</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion Condition="$(TargetFramework.Contains('-ios'))">15.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Ageledger.Tests" />
+  </ItemGroup>
+  <!--
+    Public API baseline (Microsoft.CodeAnalysis.PublicApiAnalyzers). An unrecorded public member (RS0016) or a recorded one that no longer exists (RS0017) fails the build.
+    Types every target has are listed in PublicAPI.*.txt next to this file; types that only one platform build has (GoogleAgeSignalsBackend, AppleAgeRangeBackend)
+    are listed in PublicAPI/<android|ios>/PublicAPI.*.txt, which only that target compiles in. The analyzer reads every file named PublicAPI.Shipped.txt or
+    PublicAPI.Unshipped.txt it is given and merges them, so each target sees the common list plus its own.
+    Nothing is released yet, so the Shipped files stay empty; move lines from Unshipped to Shipped when a version is published.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="[5.6.0]" PrivateAssets="all" />
+    <AdditionalFiles Include="PublicAPI.Shipped.txt" />
+    <AdditionalFiles Include="PublicAPI.Unshipped.txt" />
+    <AdditionalFiles Include="PublicAPI\android\PublicAPI.Shipped.txt;PublicAPI\android\PublicAPI.Unshipped.txt" Condition="$(TargetFramework.Contains('-android'))" />
+    <AdditionalFiles Include="PublicAPI\ios\PublicAPI.Shipped.txt;PublicAPI\ios\PublicAPI.Unshipped.txt" Condition="$(TargetFramework.Contains('-ios'))" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\NOTICE" Pack="true" PackagePath="" Visible="false" />
+    <None Include="..\..\docs\package-readme.md" Pack="true" PackagePath="README.md" Visible="false" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="Platforms\**" />
+    <Compile Include="Platforms\Android\**\*.cs" Condition="$(TargetFramework.Contains('-android'))" />
+    <Compile Include="Platforms\iOS\**\*.cs" Condition="$(TargetFramework.Contains('-ios'))" />
+  </ItemGroup>
+  <ItemGroup Condition="$(TargetFramework.Contains('-android'))">
+    <PackageReference Include="Xamarin.Google.Android.Play.Age.Signals" Version="0.0.4" />
+    <!-- The binding's dependencies need this AndroidX version; MAUI alone resolves an older one (NU1107). Referenced here so apps inherit it. -->
+    <PackageReference Include="Xamarin.AndroidX.Lifecycle.LiveData.Core" Version="2.11.0.1" />
+  </ItemGroup>
+  <!--
+    While packing, the binding is private (no dependency on an unpublished package; see IncludeIosBindingInPackage below).
+    In a normal build or project reference it must stay public, or an app that references this project loses the binding's native framework at link time.
+  -->
+  <PropertyGroup>
+    <IosBindingPrivateAssets>none</IosBindingPrivateAssets>
+    <IosBindingPrivateAssets Condition="'$(_IsPacking)' == 'true'">all</IosBindingPrivateAssets>
+  </PropertyGroup>
+  <ItemGroup Condition="$(TargetFramework.Contains('-ios'))">
+    <ProjectReference Include="..\Ageledger.IosBinding\Ageledger.IosBinding.csproj" PrivateAssets="$(IosBindingPrivateAssets)" />
+  </ItemGroup>
+
+  <!--
+    The iOS binding is not packed on its own: ship its assembly and its native-framework sidecar (Ageledger.IosBinding.resources.zip)
+    inside this package, next to the iOS library, so an app that references the package links the Swift wrapper without any NativeReference.
+  -->
+  <PropertyGroup Condition="$(TargetFramework.Contains('-ios'))">
+    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);IncludeIosBindingInPackage</TargetsForTfmSpecificContentInPackage>
+  </PropertyGroup>
+  <Target Name="RequireCliPack" BeforeTargets="GenerateNuspec" Condition="'$(_IsPacking)' != 'true'">
+    <Error Text="Pack with 'dotnet pack' (with restore): the iOS binding must be bundled, not referenced as a package dependency." />
+  </Target>
+  <Target Name="IncludeIosBindingInPackage" DependsOnTargets="ResolveReferences">
+    <ItemGroup>
+      <_IosBindingFile Include="@(ReferenceCopyLocalPaths)" Condition="$([System.String]::Copy('%(Filename)').StartsWith('Ageledger.IosBinding')) and '%(Extension)' != '.pdb'" />
+      <TfmSpecificPackageFile Include="@(_IosBindingFile)" PackagePath="lib/$(TargetFramework)$(TargetPlatformVersion)/" />
+    </ItemGroup>
+  </Target>
+</Project>

@@ -1,0 +1,3 @@
+# Copy to signing.local (untracked) and fill in. Read by scripts/ios-uitests.sh.
+TEAM_ID=YOUR_TEAM_ID
+PROFILE_UUID=00000000-0000-0000-0000-000000000000

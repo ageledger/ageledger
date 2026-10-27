@@ -1,0 +1,5 @@
+# Devices the self-test scripts may touch, one id per line (an adb serial or an iOS device UDID).
+# Copy this file to scripts/devices.local (untracked) and replace the made-up values below with your own.
+# A device that is not listed here is refused.
+EXAMPLEANDROID0001
+00000000-0000000000000000

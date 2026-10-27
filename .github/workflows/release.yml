@@ -1,0 +1,282 @@
+name: release
+
+# A tag vX.Y.Z or vX.Y.Z-pre builds the packages from the tagged commit and pushes them to nuget.org with trusted publishing
+# (a short-lived key is requested for this run; there is no stored API key). Publishing waits for approval of the "release" environment.
+# Do not add a concurrency group named "ci-${{ github.ref }}" here: ci.yml, which this workflow calls, uses that name.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    # Only the public repository publishes; a fork never reaches the build or publish jobs.
+    if: github.repository == 'ageledger/ageledger'
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    needs: ci
+    if: github.repository == 'ageledger/ageledger'
+    runs-on: xcode-27
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      sha256: ${{ steps.hashes.outputs.sha256 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require the tagged commit to be on main
+        run: |
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::The tagged commit $GITHUB_SHA is not reachable from origin/main; only commits on main are released."
+            exit 1
+          fi
+      # An older commit must not be released under a higher version: this tag's commit must not be an ancestor of the commit behind
+      # the next lower v* tag (in version order, with 1.0.0-rc.1 before 1.0.0). Skipped when there is no previous tag; the same commit
+      # under two tags is allowed.
+      - name: Refuse a tag on a commit older than the previous release
+        run: |
+          tags=$(git -c versionsort.suffix=- tag --list 'v*' --sort=-v:refname)
+          if ! grep -Fxq "$GITHUB_REF_NAME" <<<"$tags"; then
+            echo "::error::The tag $GITHUB_REF_NAME is not among the v* tags of this checkout."
+            exit 1
+          fi
+          prev=$(awk -v cur="$GITHUB_REF_NAME" 'found { print; exit } $0 == cur { found = 1 }' <<<"$tags")
+          if [ -z "$prev" ]; then
+            echo "No previous v* tag; nothing to compare with."
+            exit 0
+          fi
+          cur=$(git rev-parse "refs/tags/$GITHUB_REF_NAME^{commit}")
+          prevsha=$(git rev-parse "refs/tags/$prev^{commit}")
+          if [ "$prevsha" = "$cur" ]; then
+            echo "The previous tag $prev is on the same commit."
+            exit 0
+          fi
+          rc=0
+          git merge-base --is-ancestor "$cur" "$prevsha" || rc=$?
+          case "$rc" in
+            0) echo "::error::The tagged commit $cur is an ancestor of the commit of the previous tag $prev; an older commit cannot be released under a higher version."; exit 1 ;;
+            1) echo "Previous tag $prev is not newer than this commit." ;;
+            *) echo "::error::git merge-base --is-ancestor failed (exit $rc) comparing with $prev."; exit 1 ;;
+          esac
+      - name: Derive the version from the tag
+        id: version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          v="${TAG#v}"
+          # SemVer 2.0.0 (semver.org): MAJOR.MINOR.PATCH and an optional -prerelease; no leading zeros in numeric parts. Build metadata (+build) is not accepted.
+          num='(0|[1-9][0-9]*)'
+          pre='(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)'
+          re="^${num}\.${num}\.${num}(-${pre}(\.${pre})*)?$"
+          if [ "$TAG" = "$v" ] || ! [[ "$v" =~ $re ]]; then
+            echo "::error::The tag '$TAG' is not vX.Y.Z[-prerelease]."
+            exit 1
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+      # A version is refused when nuget.org already lists it (the lookup can lag validation by minutes, so nuget.org's own 409 is the final
+      # guard); a half-finished release is finished by hand from the approved artifact. Fails closed: a lookup that cannot be answered stops the run.
+      - name: Refuse a version that is already released
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          lower=$(printf '%s' "$VERSION" | tr '[:upper:]' '[:lower:]')
+          has_version() {
+            if ! code=$(curl -sS --max-time 30 --retry 3 --retry-all-errors -o "$RUNNER_TEMP/index.json" -w '%{http_code}' "https://api.nuget.org/v3-flatcontainer/$1/index.json"); then
+              echo "::error::Could not reach nuget.org for $1 (curl's message is above)." >&2
+              echo error
+              return
+            fi
+            if [ "$code" = "404" ]; then echo no; return; fi
+            if [ "$code" != "200" ]; then echo "::error::nuget.org answered HTTP $code for $1." >&2; echo error; return; fi
+            python3 -I - "$RUNNER_TEMP/index.json" "$lower" "$1" <<'PY'
+          import json, sys
+          d = json.load(open(sys.argv[1]))
+          if not isinstance(d, dict) or not isinstance(d.get("versions"), list):
+              print("::error::nuget.org's index for " + sys.argv[3] + " has no versions list.", file=sys.stderr)
+              print("error")
+          else:
+              print("yes" if sys.argv[2] in d["versions"] else "no")
+          PY
+          }
+          main=$(has_version ageledger)
+          testing=$(has_version ageledger.testing)
+          if [ "$main" = "error" ] || [ "$testing" = "error" ]; then exit 1; fi
+          if [ "$main" = "yes" ] || [ "$testing" = "yes" ]; then
+            [ "$main" = "yes" ] && echo "Ageledger $VERSION is on nuget.org."
+            [ "$testing" = "yes" ] && echo "Ageledger.Testing $VERSION is on nuget.org."
+            echo "::error::Ageledger $VERSION or Ageledger.Testing $VERSION is already on nuget.org; a half-finished release is finished by hand (CONTRIBUTING, 'If a release stops half way')."
+            exit 1
+          fi
+      - name: Set up the toolchain
+        uses: ./.github/actions/setup-hosted-toolchain
+      - name: Pack
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if [ -z "${ANDROID_HOME:-}" ] || [ ! -d "$ANDROID_HOME" ]; then
+            echo "::error::ANDROID_HOME is not set or does not exist on this runner image."
+            exit 1
+          fi
+          dotnet pack src/Ageledger -c Release -o "$RUNNER_TEMP/pkg" -p:Version="$VERSION" -p:AndroidSdkDirectory="$ANDROID_HOME"
+          dotnet pack src/Ageledger.Testing -c Release -o "$RUNNER_TEMP/pkg-testing" -p:Version="$VERSION" -p:AndroidSdkDirectory="$ANDROID_HOME"
+      - name: Check the packages carry this version
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          fail=0
+          for f in "$RUNNER_TEMP/pkg/Ageledger.$VERSION.nupkg" "$RUNNER_TEMP/pkg/Ageledger.$VERSION.snupkg" \
+                   "$RUNNER_TEMP/pkg-testing/Ageledger.Testing.$VERSION.nupkg" "$RUNNER_TEMP/pkg-testing/Ageledger.Testing.$VERSION.snupkg"; do
+            if [ ! -f "$f" ]; then
+              echo "::error::Expected package $(basename "$f") was not produced."
+              fail=1
+            fi
+          done
+          if [ "$fail" = "0" ] && ! unzip -p "$RUNNER_TEMP/pkg-testing/Ageledger.Testing.$VERSION.nupkg" Ageledger.Testing.nuspec | grep -Fq "<dependency id=\"Ageledger\" version=\"[$VERSION]\""; then
+            echo "::error::The Ageledger.Testing nuspec must depend on Ageledger exactly [$VERSION]."
+            fail=1
+          fi
+          exit $fail
+      - name: Run the package checks again on these packages
+        run: |
+          scripts/ci/check-packages.sh main "$RUNNER_TEMP/pkg"
+          scripts/ci/check-packages.sh testing "$RUNNER_TEMP/pkg-testing" "$RUNNER_TEMP/pkg"
+      # The four packages, flat in one folder, are what the publish job downloads.
+      - name: Collect the packages
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"
+          cp "$RUNNER_TEMP/pkg/Ageledger.$VERSION.nupkg" "$RUNNER_TEMP/pkg/Ageledger.$VERSION.snupkg" \
+             "$RUNNER_TEMP/pkg-testing/Ageledger.Testing.$VERSION.nupkg" "$RUNNER_TEMP/pkg-testing/Ageledger.Testing.$VERSION.snupkg" "$RUNNER_TEMP/out/"
+      # The publish job checks these against what it downloads (a job output travels separately from the artifact).
+      - name: Record the package hashes
+        id: hashes
+        run: |
+          cd "$RUNNER_TEMP/out"
+          hashes=$(shasum -a 256 -- *.nupkg *.snupkg)
+          printf '%s\n' "$hashes"
+          { echo "sha256<<HASHES_EOF"; printf '%s\n' "$hashes"; echo "HASHES_EOF"; } >> "$GITHUB_OUTPUT"
+      # Never set "overwrite: true" here: the approved artifact is the one from the first attempt, and a half-finished release is finished
+      # by hand from it (CONTRIBUTING, "If a release stops half way").
+      - name: Keep the packages with the run
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: packages
+          path: ${{ runner.temp }}/out/
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    if: github.repository == 'ageledger/ageledger'
+    # Needs only dotnet, curl, python3 and shasum, so it does not use the preview macOS image.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: release
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      VERSION: ${{ needs.build.outputs.version }}
+      EXPECTED_SHA256: ${{ needs.build.outputs.sha256 }}
+    steps:
+      # The checkout below has only one script (no global.json), so the SDK band that global.json pins (10.0.300, latest patch) is written out here.
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.3xx
+      # The publish job holds the OIDC token, so it runs nothing the build job produced: the push script is taken from the tagged commit
+      # itself, and only that one file.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          sparse-checkout: scripts/ci/push-packages.sh
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: packages
+          path: ${{ runner.temp }}/packages
+      - name: Check the downloaded files
+        run: |
+          fail=0
+          for f in "Ageledger.$VERSION.nupkg" "Ageledger.$VERSION.snupkg" "Ageledger.Testing.$VERSION.nupkg" "Ageledger.Testing.$VERSION.snupkg"; do
+            if [ ! -f "$RUNNER_TEMP/packages/$f" ]; then
+              echo "::error::Expected package $f is not in the downloaded artifact."
+              fail=1
+            fi
+          done
+          # The files must be the ones the build job hashed.
+          if [ "$(printf '%s\n' "$EXPECTED_SHA256" | wc -l | tr -d ' ')" != "4" ]; then
+            echo "::error::The build job did not report four package hashes."
+            fail=1
+          elif ! (cd "$RUNNER_TEMP/packages" && printf '%s\n' "$EXPECTED_SHA256" | shasum -a 256 -c -); then
+            echo "::error::A downloaded package does not match the hash the build job recorded."
+            fail=1
+          fi
+          # Nothing else may be in the folder.
+          extra=$(find "$RUNNER_TEMP/packages" -mindepth 1 | grep -vxF -e "$RUNNER_TEMP/packages/Ageledger.$VERSION.nupkg" -e "$RUNNER_TEMP/packages/Ageledger.$VERSION.snupkg" -e "$RUNNER_TEMP/packages/Ageledger.Testing.$VERSION.nupkg" -e "$RUNNER_TEMP/packages/Ageledger.Testing.$VERSION.snupkg" || true)
+          if [ -n "$extra" ]; then
+            echo "::error::The downloaded artifact contains unexpected files:"
+            echo "$extra"
+            fail=1
+          fi
+          exit $fail
+      # There is no automatic recovery: if either package already has this version the job stops, and a half-finished release is finished
+      # by hand. A 404 from the flat-container index means the package id does not exist yet.
+      - name: Find out what is already on nuget.org
+        id: exists
+        run: |
+          lower=$(printf '%s' "$VERSION" | tr '[:upper:]' '[:lower:]')
+          has_version() {
+            if ! code=$(curl -sS --max-time 30 --retry 3 --retry-all-errors -o "$RUNNER_TEMP/index.json" -w '%{http_code}' "https://api.nuget.org/v3-flatcontainer/$1/index.json"); then
+              echo "::error::Could not reach nuget.org for $1 (curl's message is above)." >&2
+              echo error
+              return
+            fi
+            if [ "$code" = "404" ]; then echo no; return; fi
+            if [ "$code" != "200" ]; then echo "::error::nuget.org answered HTTP $code for $1." >&2; echo error; return; fi
+            python3 -I - "$RUNNER_TEMP/index.json" "$lower" "$1" <<'PY'
+          import json, sys
+          d = json.load(open(sys.argv[1]))
+          if not isinstance(d, dict) or not isinstance(d.get("versions"), list):
+              print("::error::nuget.org's index for " + sys.argv[3] + " has no versions list.", file=sys.stderr)
+              print("error")
+          else:
+              print("yes" if sys.argv[2] in d["versions"] else "no")
+          PY
+          }
+          main=$(has_version ageledger)
+          testing=$(has_version ageledger.testing)
+          if [ "$main" = "error" ] || [ "$testing" = "error" ]; then exit 1; fi
+          if [ "$main" = "yes" ] || [ "$testing" = "yes" ]; then
+            [ "$main" = "yes" ] && echo "Ageledger $VERSION is on nuget.org."
+            [ "$testing" = "yes" ] && echo "Ageledger.Testing $VERSION is on nuget.org."
+            echo "::error::Ageledger or Ageledger.Testing $VERSION is already on nuget.org; a half-finished release is finished by hand (CONTRIBUTING, 'If a release stops half way')."
+            exit 1
+          fi
+          echo "main=$main" >> "$GITHUB_OUTPUT"
+          echo "testing=$testing" >> "$GITHUB_OUTPUT"
+      # NuGet/login v1 (its README, checked 2026-10-27): input "user" (required; the nuget.org profile name that owns the trusted
+      # publishing policy), optional "token-service-url" and "audience"; output NUGET_API_KEY; the job needs id-token: write.
+      # v1.2.0 is commit 8d19675.
+      - name: Get a short-lived NuGet API key
+        id: login
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
+        with:
+          user: ${{ secrets.NUGET_USER }}
+      # No --skip-duplicate. What is pushed, and what happens on a failure, is in scripts/ci/push-packages.sh (covered by
+      # scripts/ci/selftest-release-push.sh, which ci.yml runs; neither has run on GitHub yet); it comes from the sparse checkout above, not from the artifact.
+      - name: Push to nuget.org
+        env:
+          NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
+          MAIN_EXISTS: ${{ steps.exists.outputs.main }}
+          TESTING_EXISTS: ${{ steps.exists.outputs.testing }}
+          PKG_DIR: ${{ runner.temp }}/packages
+          DOTNET_CLI_UI_LANGUAGE: en
+        run: bash scripts/ci/push-packages.sh

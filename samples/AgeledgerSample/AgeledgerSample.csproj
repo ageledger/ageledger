@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Minimal device-test app for Ageledger (docs/device-test-plan.md). Not packed or published.
+    iOS device signing is manual and comes from an untracked AgeledgerSample.csproj.user (CodesignKey, CodesignProvision);
+    Simulator and Android builds need nothing local.
+  -->
+  <PropertyGroup>
+    <TargetFrameworks>net10.0-android;net10.0-ios</TargetFrameworks>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>AgeledgerSample</RootNamespace>
+    <UseMaui>true</UseMaui>
+    <SingleProject>true</SingleProject>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <IsPackable>false</IsPackable>
+
+    <ApplicationTitle>Ageledger Sample</ApplicationTitle>
+    <ApplicationId>com.ageledger.sample</ApplicationId>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <ApplicationVersion>1</ApplicationVersion>
+
+    <SupportedOSPlatformVersion Condition="$(TargetFramework.Contains('-android'))">23.0</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion Condition="$(TargetFramework.Contains('-ios'))">15.0</SupportedOSPlatformVersion>
+
+    <!-- The .NET for iOS pack (26.5) expects Xcode 26.5 while the sample was built with Xcode 27.1 (checked 2026-10-25); the library build is unaffected. Remove once the pack and Xcode match. -->
+    <ValidateXcodeVersion>false</ValidateXcodeVersion>
+  </PropertyGroup>
+
+  <!-- The declared-age-range entitlement is only embedded in device builds; the Simulator needs no entitlements or profile. -->
+  <PropertyGroup Condition="$(TargetFramework.Contains('-ios')) and '$(RuntimeIdentifier)' != '' and !$(RuntimeIdentifier.StartsWith('iossimulator'))">
+    <CodesignEntitlements>Entitlements.plist</CodesignEntitlements>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Maui.Controls" Version="10.0.20" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Ageledger\Ageledger.csproj" />
+  </ItemGroup>
+
+  <!-- The Debug self-test uses the fakes; a Release build neither compiles nor references them. -->
+  <ItemGroup Condition="'$(Configuration)' == 'Debug'">
+    <ProjectReference Include="..\..\src\Ageledger.Testing\Ageledger.Testing.csproj" />
+  </ItemGroup>
+</Project>

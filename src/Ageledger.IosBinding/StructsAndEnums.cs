@@ -1,0 +1,1 @@
+namespace Ageledger.Native;

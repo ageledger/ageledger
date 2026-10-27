@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <PackageId>Ageledger.Testing</PackageId>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <Description>Test doubles for Ageledger: fake Android and Apple backends for unit tests that run on plain .NET, with no device and no platform SDK. For tests only; do not ship it in an app.</Description>
+    <PackageTags>ageledger;testing;fakes;age-signals</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageProjectUrl>https://github.com/ageledger/ageledger</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/ageledger/ageledger</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Every public member needs an XML doc comment. -->
+    <WarningsAsErrors>$(WarningsAsErrors);CS1591;CS1574;CS1580;CS1584;RS0016;RS0017</WarningsAsErrors>
+    <EnablePackageValidation>true</EnablePackageValidation>
+    <Nullable>enable</Nullable>
+    <IsAotCompatible>true</IsAotCompatible>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="..\..\NOTICE" Pack="true" PackagePath="" Visible="false" />
+    <None Include="..\..\docs\testing-package-readme.md" Pack="true" PackagePath="README.md" Visible="false" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Ageledger\Ageledger.csproj" />
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="[5.6.0]" PrivateAssets="all" />
+    <AdditionalFiles Include="PublicAPI.Shipped.txt" />
+    <AdditionalFiles Include="PublicAPI.Unshipped.txt" />
+  </ItemGroup>
+  <!--
+    Pin the dependency on Ageledger to exactly this package's version ("[x.y.z]" in the nuspec): the fakes implement Ageledger's backend interfaces,
+    which may gain members before 1.0, so a different Ageledger version could fail to compile or run against them.
+  -->
+  <Target Name="PinAgeledgerDependency" AfterTargets="_GetProjectReferenceVersions" Condition="'@(_ProjectReferencesWithVersions)' != ''">
+    <ItemGroup>
+      <_PinnedProjectReference Include="@(_ProjectReferencesWithVersions)" ProjectVersion="[%(ProjectVersion)]" />
+      <_ProjectReferencesWithVersions Remove="@(_ProjectReferencesWithVersions)" />
+      <_ProjectReferencesWithVersions Include="@(_PinnedProjectReference)" />
+    </ItemGroup>
+  </Target>
+  <!-- Fails the pack if the pin above did not run (for example because the SDK's target changed), so an open range can never ship. -->
+  <Target Name="RequirePinnedAgeledgerDependency" BeforeTargets="GenerateNuspec">
+    <ItemGroup>
+      <_PinnedDependency Include="@(_ProjectReferencesWithVersions)" Condition="$([System.String]::Copy('%(ProjectVersion)').StartsWith('['))" />
+    </ItemGroup>
+    <Error Condition="'@(_PinnedDependency)' == ''" Text="The dependency on Ageledger is not pinned to an exact version ([x.y.z]); see PinAgeledgerDependency." />
+  </Target>
+</Project>
