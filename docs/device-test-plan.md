@@ -3,6 +3,8 @@
 Plan for showing that Ageledger works on real Android and iOS devices, using a minimal sample app. Android rows were run on a phone and some iOS rows headless on the Simulator on 2026-10-25 (docs/device-test-results.md); some iPhone rows were run on 2026-10-26 and 2026-10-27 (sandbox account, iOS 27.0.1; see device-test-results.md); the rest are listed as not run in the README 'Unverified' list. Not legal advice; the plan tests
 the library's behaviour, not any app's legal position, and a passing test says nothing about compliance with any law.
 
+To run the sample on your own devices (own bundle ID, own Apple account), see [try-the-sample.md](try-the-sample.md).
+
 Facts below are labelled **verified** (read in Apple's or Google's documentation on 2026-10-25, section named),
 **secondary** (only seen in a search summary or a forum), or **unverified** (inference; to be settled by the first run).
 
@@ -177,9 +179,9 @@ rules; other US states will be announced (**verified**, same page). Outside thos
 - **Verified (Apple documentation for `com.apple.developer.declared-age-range`):** the key is
   `com.apple.developer.declared-age-range`, "A Boolean value indicating whether your app may request a person's age
   range". To use it, "enable the Declared Age Range capability on your target in Xcode".
-- **Settled (2026-10-26, from the installed profile):** the App ID `com.ageledger.sample` was created in the developer
-  account with the Declared Age Range capability, and its development profile `AgeledgerSample Development` (iPhone
-  included) grants `com.apple.developer.declared-age-range`. The old App ID and profiles were removed from the account
+- **Settled (2026-10-26, from the installed profile):** for this project's own runs, the App ID `com.ageledger.sample` was
+  created in its developer account with the Declared Age Range capability, and its development profile
+  `AgeledgerSample Development` (iPhone included) grants `com.apple.developer.declared-age-range`. The old App ID and profiles were removed from the account
   the same day.
 - **Settled (2026-10-25, from the installed profile, before the rename):** the entitlement was configured on the
   previous App ID and showed up in its development profile. So the capability is set in the developer account, not only
@@ -193,12 +195,13 @@ created in the developer account (never committed). The one exception to the usu
 sample is never distributed, so no App Store profile is created. The Simulator needs no profile. The sample's App ID is
 `com.ageledger.sample` (with the Declared Age Range capability).
 
-Status as of 2026-10-26:
+History of this project's own setup (2026-10-26). Another developer needs their own bundle ID, App ID and profiles in
+their own account, which [try-the-sample.md](try-the-sample.md) walks through:
 
-- Done: the App ID `com.ageledger.sample` and the profile `AgeledgerSample Development` exist and are installed; the
-  profile grants the declared-age-range entitlement and includes the iPhone.
-- A wildcard App ID `com.ageledger.sample.uitests.*` and the profile `AgeledgerSampleUITests Development` exist in the
-  developer account for the UI-test target, which is added in a separate change.
+- For this project's own runs, the App ID `com.ageledger.sample` and the profile `AgeledgerSample Development` were created
+  and installed; the profile grants the declared-age-range entitlement and includes the test iPhone.
+- A wildcard App ID `com.ageledger.sample.uitests.*` and the profile `AgeledgerSampleUITests Development` were created in
+  the same account for the UI-test target.
 - History: until 2026-10-26 the sample used another App ID and profile name from before the rename; those were replaced
   on 2026-10-26 (the iPhone was added to the old profile on 2026-10-25).
 - Selecting a profile by name can pick an older profile with the same name, and the device install then fails. The build
