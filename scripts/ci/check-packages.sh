@@ -34,11 +34,19 @@ if [ -z "$iosdir" ] || ! grep -Fq "${iosdir}Ageledger.dll" <<<"$listing"; then
   fail=1
 fi
 check '(^| )NOTICE$' "NOTICE at the package root"
-if ! unzip -p "$pkg" NOTICE 2>/dev/null | grep -Fq 'Copyright 2026 Priyanka Bukka and contributors'; then
+if ! unzip -p "$pkg" NOTICE 2>/dev/null | grep -Fq 'Copyright 2026 The Ageledger Authors'; then
   echo "::error::The package's root NOTICE is missing or does not contain the copyright line."
   fail=1
 fi
 nuspec=$(unzip -p "$pkg" '*.nuspec')
+if ! grep -Fq '<authors>Ageledger</authors>' <<<"$nuspec"; then
+  echo "::error::The package nuspec does not have <authors>Ageledger</authors>."
+  fail=1
+fi
+if ! grep -Fq '<copyright>Copyright 2026 The Ageledger Authors</copyright>' <<<"$nuspec"; then
+  echo "::error::The package nuspec does not have the copyright line 'Copyright 2026 The Ageledger Authors'."
+  fail=1
+fi
 if grep -q 'Ageledger\.IosBinding' <<<"$nuspec"; then
   echo "::error::The nuspec depends on Ageledger.IosBinding; it must be bundled, not referenced."
   fail=1
@@ -226,11 +234,19 @@ if grep -Eq '\.pdb$' <<<"$listing"; then
   fail=1
 fi
 check '(^| )NOTICE$' "NOTICE at the package root"
-if ! unzip -p "$tpkg" NOTICE 2>/dev/null | grep -Fq 'Copyright 2026 Priyanka Bukka and contributors'; then
+if ! unzip -p "$tpkg" NOTICE 2>/dev/null | grep -Fq 'Copyright 2026 The Ageledger Authors'; then
   echo "::error::The Ageledger.Testing NOTICE is missing or does not contain the copyright line."
   fail=1
 fi
 nuspec=$(unzip -p "$tpkg" '*.nuspec')
+if ! grep -Fq '<authors>Ageledger</authors>' <<<"$nuspec"; then
+  echo "::error::The Ageledger.Testing nuspec does not have <authors>Ageledger</authors>."
+  fail=1
+fi
+if ! grep -Fq '<copyright>Copyright 2026 The Ageledger Authors</copyright>' <<<"$nuspec"; then
+  echo "::error::The Ageledger.Testing nuspec does not have the copyright line 'Copyright 2026 The Ageledger Authors'."
+  fail=1
+fi
 # The dependency must be exactly the main package's version, written [version].
 pkg=$(ls "$main_dir"/Ageledger.[0-9]*.nupkg)
 mainver=$(unzip -p "$pkg" Ageledger.nuspec | sed -n 's|.*<version>\(.*\)</version>.*|\1|p' | head -n 1)
