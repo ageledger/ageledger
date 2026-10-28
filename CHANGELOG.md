@@ -4,6 +4,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## Unreleased
 
+### Changed
+
 Copyright and package authorship are now 'The Ageledger Authors' / 'Ageledger'. The published 0.1.0-preview.1 package keeps its original metadata (nuget.org packages cannot be edited).
 
 ## 0.1.0-preview.1 (2026-10-27)
