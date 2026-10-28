@@ -243,6 +243,6 @@ iOS Simulator (headless, iOS 26.5; these runs predate the sample's scene adoptio
 
 ## Licence
 
-Licensed under the Apache License, Version 2.0; see [LICENSE](LICENSE) and [NOTICE](NOTICE). Copyright 2026 Priyanka Bukka and contributors.
+Licensed under the Apache License, Version 2.0; see [LICENSE](LICENSE) and [NOTICE](NOTICE). Copyright 2026 The Ageledger Authors.
 
 Security issues: see [SECURITY.md](SECURITY.md). Contributions: see [CONTRIBUTING.md](CONTRIBUTING.md).

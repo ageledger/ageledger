@@ -2,6 +2,10 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). The first release is a preview.
 
+## Unreleased
+
+Copyright and package authorship are now 'The Ageledger Authors' / 'Ageledger'. The published 0.1.0-preview.1 package keeps its original metadata (nuget.org packages cannot be edited).
+
 ## 0.1.0-preview.1 (2026-10-27)
 
 First preview release. Everything below ships in `Ageledger` and `Ageledger.Testing`; the public API may still change before 1.0.
@@ -33,7 +37,7 @@ First preview release. Everything below ships in `Ageledger` and `Ageledger.Test
 - iOS apps link the Swift framework without a `NativeReference` of their own. The sample adopts the UIScene life cycle; host apps should too (see the README).
 - The public surface is small on purpose: `DecisionPolicy`, the log validators, the platform code maps, the Android `Resource` class and the bound Swift-wrapper types are internal. Until 1.0, public interfaces and records may gain members, and `GoogleAgeSignalsBackend`'s constructor exposes the Play binding's `IAgeSignalsManager`, so a breaking binding update is a breaking change here.
 - Rule-id examples in the docs, XML comments and the validator message are neutral labels; the log format states the library maps no rule to any law and rule ids should not name an age group.
-- Licence Apache-2.0, "Copyright 2026 Priyanka Bukka and contributors" (NOTICE, package metadata, README).
+- Licence Apache-2.0 (NOTICE, package metadata, README).
 
 ### Not verified
 

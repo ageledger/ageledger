@@ -1,8 +1,8 @@
 <Project>
   <!-- Builds are deterministic and carry no machine paths: the repository root is mapped to /_/ in PDBs, SourceLink data and compiler output. -->
   <PropertyGroup>
-    <Authors>Priyanka Bukka</Authors>
-    <Copyright>Copyright 2026 Priyanka Bukka and contributors</Copyright>
+    <Authors>Ageledger</Authors>
+    <Copyright>Copyright 2026 The Ageledger Authors</Copyright>
   </PropertyGroup>
   <PropertyGroup>
     <!-- One version for every package (Ageledger and Ageledger.Testing, which depends on exactly the same Ageledger version, written "[version]" in its nuspec).

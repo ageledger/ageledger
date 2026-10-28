@@ -50,7 +50,7 @@ The workflow has no automatic recovery. A version is refused when nuget.org alre
 
 ## Contributions
 
-Contributions are licensed under the Apache License 2.0, the same licence as the project (inbound = outbound, as in section 5 of the licence). Copyright stays with each contributor; the project's copyright line is "Copyright 2026 Priyanka Bukka and contributors".
+Contributions are licensed under the Apache License 2.0, the same licence as the project (inbound = outbound, as in section 5 of the licence). Copyright stays with each contributor; the project's copyright line is "Copyright 2026 The Ageledger Authors".
 
 Every commit needs a [Developer Certificate of Origin](https://developercertificate.org/) sign-off (`git commit -s`, which adds a `Signed-off-by:` line). By signing off you agree to the DCO 1.1: in short, that you wrote the change or otherwise have the right to submit it under the project's licence, and that the contribution and the sign-off (including your name or handle) are a public, permanent record. A real name is not required.
 

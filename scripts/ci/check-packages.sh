@@ -34,7 +34,7 @@ if [ -z "$iosdir" ] || ! grep -Fq "${iosdir}Ageledger.dll" <<<"$listing"; then
   fail=1
 fi
 check '(^| )NOTICE$' "NOTICE at the package root"
-if ! unzip -p "$pkg" NOTICE 2>/dev/null | grep -Fq 'Copyright 2026 Priyanka Bukka and contributors'; then
+if ! unzip -p "$pkg" NOTICE 2>/dev/null | grep -Fq 'Copyright 2026 The Ageledger Authors'; then
   echo "::error::The package's root NOTICE is missing or does not contain the copyright line."
   fail=1
 fi
@@ -226,7 +226,7 @@ if grep -Eq '\.pdb$' <<<"$listing"; then
   fail=1
 fi
 check '(^| )NOTICE$' "NOTICE at the package root"
-if ! unzip -p "$tpkg" NOTICE 2>/dev/null | grep -Fq 'Copyright 2026 Priyanka Bukka and contributors'; then
+if ! unzip -p "$tpkg" NOTICE 2>/dev/null | grep -Fq 'Copyright 2026 The Ageledger Authors'; then
   echo "::error::The Ageledger.Testing NOTICE is missing or does not contain the copyright line."
   fail=1
 fi
