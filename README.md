@@ -173,6 +173,8 @@ dotnet build samples/AgeledgerSample -f net10.0-ios -c Debug -p:RuntimeIdentifie
 ```
 
 
+To run the sample (and the iPhone UI test) on your own devices, see [docs/try-the-sample.md](docs/try-the-sample.md).
+
 The sample sets `ValidateXcodeVersion` to false because the .NET for iOS pack (26.5) expects Xcode 26.5 while the sample was built with Xcode 27.1 (checked 2026-10-25); remove it once they match. The app has no `NativeReference` of its own: the Swift framework reaches it through the library. The Simulator needs no signing, but the build still looks for a signing identity unless `-p:EnableCodeSigning=false` is passed (needed on a Mac without one). An iPhone build (`-p:RuntimeIdentifier=ios-arm64`) is signed manually with a provisioning profile that grants `com.apple.developer.declared-age-range`; `CodesignKey` and `CodesignProvision` come from a local, untracked `samples/AgeledgerSample/AgeledgerSample.csproj.user`, and `Entitlements.plist` is applied to device builds only. Nothing account-specific is committed. It has run on an Android phone, on an iPhone (iOS 27.0.1, Apple sandbox account, UI test) and, headless, on the iOS Simulator (see [docs/device-test-results.md](docs/device-test-results.md)).
 
 ## APIs covered (checked 2026-10-25 against the code, the iPhoneOS 27.1 SDK in Xcode 27.1 and the Android binding 0.0.4)
