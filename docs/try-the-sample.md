@@ -15,14 +15,14 @@ Links to Apple and Google pages were checked on 2026-10-27 (see the list at the 
 ## 1. iOS prerequisites
 
 - An iPhone on iOS 26.2 or later for sandbox testing; 26.4 or later for the regulatory calls (`GetRequiredRegulatoryFeaturesAsync`, `ShowSignificantUpdateAcknowledgmentAsync`). Below iOS 26 the library reports Unavailable (README, "Requirements for an app"; device-test-plan.md section 3).
-- An Apple Developer Program team you can sign with. This project's own runs used a paid membership. Whether a free account can enable the Declared Age Range capability for a device build was **not checked** and Apple's capability tables do not list it, so plan on a paid membership. The steps in section 3 need the Account Holder or Admin role (Apple's pages for registering App IDs, devices and profiles say so).
+- An Apple Developer Program team you can sign with. This project's own runs used a paid membership. Whether a free account can enable the Declared Age Range capability for a device build was **not checked** so plan on a paid membership. The steps in section 3 need the Account Holder or Admin role (Apple's pages for registering App IDs, devices and profiles say so).
 - A Mac with the tools the README and `global.json` describe: .NET SDK 10.0.300 (`global.json`, roll forward to the latest patch), the `maui` workload (this repository's runs used workload version 10.0.300.3; the 26.5 .NET iOS pack), and Xcode with the iOS 26.4 SDK or newer (the Swift wrapper will not build with an older SDK; this project's runs used Xcode 27.1). The sample turns `ValidateXcodeVersion` off because the pack and Xcode versions differed in our setup.
 - XcodeGen, only for the UI test in section 6 (`scripts/ios-uitests.sh` runs `xcodegen generate`).
 - A USB cable. Trust the Mac on the iPhone when asked.
 
 ## 2. Replace the bundle ID
 
-Our bundle ID, `com.ageledger.sample`, and the UI-test IDs `com.ageledger.sample.uitests.*` are registered to our team. Choose your own, for example `com.example.agesample`, and change **every** place below. This list comes from `git grep -n "com.ageledger.sample"` on the commit this guide was written against; run the same command again after you change things, and it should print nothing.
+Our bundle ID, `com.ageledger.sample`, and the UI-test IDs `com.ageledger.sample.uitests.*` are registered to our team. Choose your own, for example `com.example.agesample`, and change **every** place below. This list comes from `git grep -n "com.ageledger.sample"` on the commit this guide was written against; after you change things, run `git grep -n "com.ageledger.sample" -- ':!docs'`, which should print nothing.
 
 | File | Line | What it is |
 |---|---|---|
@@ -36,16 +36,17 @@ Our bundle ID, `com.ageledger.sample`, and the UI-test IDs `com.ageledger.sample
 | `scripts/ios-uitests.sh` | 59 | `SAMPLE_BUNDLE`: the one app the script uninstalls for `--reinstall-probe` |
 | `scripts/lib/selftest-common.sh` | 14 | `PACKAGE`: used by the Android and iOS self-test scripts |
 
-Other mentions are documentation only (`docs/device-test-plan.md` lines 67, 180, 194, 198, 200 and 411 describe this project's own IDs); you do not need to edit them to build.
+Other mentions are in the documentation (`docs/device-test-plan.md` and this guide describe this project's own IDs); you do not need to edit them to build, which is why the check above leaves `docs` out.
 
 If you are testing iOS only you could leave `MainActivity.cs` alone, but changing it together with the csproj keeps Android working. If you only want Android, the same id can stay as it is, or be changed in the same places. `com.ageledger.native` (the framework's own identifier inside the package, set in `native/ios/build.sh`) does **not** need changing.
 
-Do not use `sed` blindly on the whole repository; edit these files only, then re-run the `git grep` above (restricted to files you meant to change).
+Do not run `sed` blindly over the whole repository; edit the files in the table.
 
 ## 3. Apple developer account steps (iPhone)
 
 Do these in your own account, in [Certificates, Identifiers & Profiles](https://developer.apple.com/account/resources). Keep the profile names in the style `<App> Development`; the project rule here is manual signing with profiles you can see in the account, not Xcode-managed automatic signing.
 
+0. **Have an Apple Development certificate** (skip if you already have one in your keychain). In Certificates, Identifiers & Profiles choose Certificates > + > Apple Development, and upload a certificate signing request made in Keychain Access (Certificate Assistant > Request a Certificate from a Certificate Authority, saved to disk). Keep the private key that Keychain Access creates on that Mac: the profile in step 3 needs this certificate, and signing needs its private key. Apple's page for the request: [Create a certificate signing request](https://developer.apple.com/help/account/certificates/create-a-certificate-signing-request). The rest of this step is the usual flow and was not checked against an Apple page.
 1. **Create the App ID.** Identifiers > + > App IDs > App, choose Explicit and enter your bundle ID. Under Capabilities tick **Declared Age Range**. Apple's page: [Register an App ID](https://developer.apple.com/help/account/identifiers/register-an-app-id). Apple's entitlement reference, for the key the sample's `Entitlements.plist` sets: [`com.apple.developer.declared-age-range`](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.developer.declared-age-range). In this project the capability was set on the App ID in the account and showed up in the installed profile as `com.apple.developer.declared-age-range` (device-test-plan.md section 6.2); check yours the same way.
 2. **Register the iPhone.** Devices > +, with a name and the device's UDID (Finder, or Xcode's Devices window, shows it). Apple's page: [Register a single device](https://developer.apple.com/help/account/devices/register-a-single-device).
 3. **Create a development provisioning profile** for the App ID: iOS App Development, pick the App ID, your Apple Development certificate and the iPhone, name it (for example `AgeSample Development`), download it and install it by opening the file. Apple's page: [Create a development provisioning profile](https://developer.apple.com/help/account/provisioning-profiles/create-a-development-provisioning-profile) (that page does not describe installing; for manual signing it points to Xcode's help on manually signing an app).
@@ -55,19 +56,19 @@ Do these in your own account, in [Certificates, Identifiers & Profiles](https://
 
 These are ignored by git (`*.user`, `scripts/devices.local` and `tests/ios-device-uitests/signing.local` are in `.gitignore`). Do not commit them.
 
-- `samples/AgeledgerSample/AgeledgerSample.csproj.user`: MSBuild imports it automatically. The sample's csproj reads two properties from it, `CodesignKey` and `CodesignProvision`:
+- `samples/AgeledgerSample/AgeledgerSample.csproj.user`: MSBuild imports it automatically. The .NET iOS SDK reads two properties from it, `CodesignKey` and `CodesignProvision` (the sample's csproj only mentions them in a comment):
 
   ```xml
   <Project>
     <PropertyGroup>
-      <CodesignKey>Apple Development: Your Name (YOUR_TEAM_ID)</CodesignKey>
+      <CodesignKey><exact identity name printed by: security find-identity -v -p codesigning></CodesignKey>
       <CodesignProvision>PROFILE-UUID-OF-YOUR-SAMPLE-PROFILE</CodesignProvision>
     </PropertyGroup>
   </Project>
   ```
 
   Use the profile's **UUID**, not its name: a name can match an older profile and then the device install fails (device-test-plan.md section 6.3). `security find-identity -v -p codesigning` lists your signing identities; the UUID is inside the downloaded `.mobileprovision` (for example `security cms -D -i <file>` and look for `UUID`). The same two values can instead be passed on the command line as `-p:CodesignKey=... -p:CodesignProvision=...`. The `Entitlements.plist` is applied to device builds only.
-- `scripts/devices.local`: copy `scripts/devices.local.example`. One allowed device per line (an Android serial or an iPhone UDID); a device that is not listed is refused. `scripts/ios-uitests.sh` also accepts an optional name after the UDID that it scrubs from its output.
+- `scripts/devices.local`: copy `scripts/devices.local.example`. One allowed device per line (an Android serial or an iPhone UDID); a device that is not listed is refused. The self-test scripts (`selftest-ios.sh`, `selftest-android.sh`) match the whole line, so the device id must be **alone on its line** for them. `scripts/ios-uitests.sh` also accepts an optional name after the UDID that it scrubs from its output, but with a name on the line `selftest-ios.sh` refuses that device. If you use both, put the id alone.
 - `tests/ios-device-uitests/signing.local`: copy `signing.local.example` and set `TEAM_ID=YOUR_TEAM_ID` and `PROFILE_UUID=` to the **UI-test wildcard profile's** UUID (step 4). The script sources this file as shell code, so keep it to those two assignments.
 
 ## 4. The Sandbox Apple Account and Developer Mode
@@ -75,8 +76,8 @@ These are ignored by git (`*.user`, `scripts/devices.local` and `tests/ios-devic
 The iPhone returns age-range answers for the sample through Apple's sandbox, not a real account.
 
 1. Create a Sandbox Apple Account in App Store Connect, Users and Access > Sandbox: [Create a Sandbox Apple Account](https://developer.apple.com/help/app-store-connect/test-in-app-purchases/create-a-sandbox-apple-account). Apple's page says not to use an address that is already an Apple Account or has been used to buy content. Use a **new address that has never been used for a real Apple Account** (a plus-address on a mailbox you control works, as Apple's page describes). Name, email and password cannot be edited afterwards.
-2. On the iPhone turn on Developer Mode: Settings > Privacy & Security > Developer Mode, then restart as asked. Apple's page: [Enabling Developer Mode on a device](https://developer.apple.com/documentation/xcode/enabling-developer-mode-on-a-device).
-3. Settings > Developer > **Sandbox Apple Account**, sign in with the account from step 1, select it, tap **Manage**, then **Age Assurance**. On iOS 27.0.1 (what this project observed) the same page was reached as Account Settings > Age Assurance. Apple's page on the scenarios: [Testing age assurance in sandbox](https://developer.apple.com/documentation/storekit/testing-age-assurance-in-sandbox). Apple's developer forum answers said the steps on that page were outdated at one point; the path above is the one in this repository's notes (device-test-plan.md section 6.1).
+2. On the iPhone turn on Developer Mode: Settings > Privacy & Security > Developer Mode, then restart as asked. Apple's page: [Enabling Developer Mode on a device](https://developer.apple.com/documentation/xcode/enabling-developer-mode-on-a-device). Usually the Developer Mode toggle only appears once the phone has been connected to a Mac running Xcode: if it is missing, connect the phone and open Xcode > Window > Devices and Simulators once (or try the install in section 5 first); the toggle then appears. That is the usual behaviour; we have not checked it against Apple's page.
+3. Settings > Developer > **Sandbox Apple Account**, sign in with the account from step 1, select it, tap **Manage**, then **Age Assurance**. On iOS 27.0.1 (what this project observed) the same page was reached as Account Settings > Age Assurance. Apple's page on the scenarios: [Testing age assurance in sandbox](https://developer.apple.com/documentation/storekit/testing-age-assurance-in-sandbox). Secondary and unlinked: a forum answer said at one point that the steps on that page were outdated. The path above is the one in this repository's notes (device-test-plan.md section 6.1).
 4. Note which scenario is selected now (probably Off), so you can set it back in section 7.
 
 Apple's scenarios are: Under 13 (significant change approved), 13-15, 16-17, 18+ age not confirmed, 18+ age confirmed, and 18+ age confirmed with a significant change applicable, plus Off (device-test-plan.md section 6.4).
@@ -91,7 +92,7 @@ xcrun devicectl device install app --device <IPHONE_UDID> <path to AgeledgerSamp
 xcrun devicectl device process launch --device <IPHONE_UDID> com.example.agesample
 ```
 
-The first iOS build also builds the Swift wrapper (`native/ios/build.sh`, needs Xcode). The `.app` is under the sample's `bin/` folder for that configuration and runtime identifier; find it with `find samples/AgeledgerSample/bin -name AgeledgerSample.app`. To check that the entitlement made it into the signed app: `codesign -d --entitlements :- <the .app>` should show `com.apple.developer.declared-age-range`. (The README's "Unverified" list notes that this project has not checked the signing of the embedded framework beyond what its device runs showed.)
+The first iOS build also builds the Swift wrapper (`native/ios/build.sh`, needs Xcode). The `.app` is under the sample's `bin/` folder for that configuration and runtime identifier; for the device build it is `samples/AgeledgerSample/bin/Debug/net10.0-ios/ios-arm64/AgeledgerSample.app`. To check that the entitlement made it into the signed app: `codesign -d --entitlements :- <the .app>` should show `com.apple.developer.declared-age-range`. (The README's "Unverified" list notes that this project has not checked the signing of the embedded framework beyond what its device runs showed.)
 
 In the sample:
 
@@ -99,15 +100,16 @@ In the sample:
 2. Tap **Evaluate**.
 3. Compare with this table (device-test-plan.md section 7.3, rows I3-I7; observed on one iPhone on iOS 27.0.1 in three runs, so yours may differ on another OS version):
 
-| Sandbox scenario | State | Bucket | Decision |
+| Sandbox scenario (label as shown in Settings on iOS 27.0.1) | State | Bucket | Decision |
 |---|---|---|---|
-| 18+ age confirmed | Shared | `18+` | Allowed |
-| 18+ age not confirmed | Shared | `18+` | Allowed |
-| 16-17 | Shared | `16-17` | AllowedWithParentalConsent |
-| 13-15 | Shared | `13-15` | AllowedWithParentalConsent |
-| Under 13 | Shared | `0-12` | Blocked |
+| User 18+, age confirmed, significant change not applicable | Shared | `18+` | Allowed |
+| User 18+, age not confirmed, significant change not applicable | Shared | `18+` | Allowed |
+| User 18+, age confirmed, significant change applicable | Shared | `18+` | Allowed |
+| User 16-17, significant change declined | Shared | `16-17` | AllowedWithParentalConsent |
+| User 13-15, significant change approved | Shared | `13-15` | AllowedWithParentalConsent |
+| User under 13, significant change approved | Shared | `0-12` | Blocked |
 
-Change the scenario in Settings between runs. No consent sheet appeared in the sandbox in this project's runs.
+The labels are the ones the UI test matches on iOS 27.0.1 (`tests/ios-device-uitests/AgeledgerUITests/Support.swift`); on other iOS versions they may read differently. Change the scenario in Settings between runs. No consent sheet appeared in the sandbox in this project's runs.
 
 Two things to know:
 
@@ -126,6 +128,7 @@ Before the first run: the wildcard App ID and profile (section 3 step 4), `signi
 scripts/ios-uitests.sh --udid <IPHONE_UDID> --test ExplorationTests/testExploration --app <path to the Debug AgeledgerSample.app>
 ```
 
+- The UI test has only been run on an iPhone with Touch ID; Face ID has not been tried.
 - The phone may ask for **Touch ID** once or more when Settings opens the sandbox account page, so someone has to hold the phone. The log prints `ACTION NEEDED: touch the Touch ID sensor on the iPhone now`.
 - **Do not interrupt it.** If the run fails or stops, the script restores the scenario from a separate run. Only a read-back counts as restored. It prints `SCENARIO NOT RESTORED: <label>` if it could not verify the restore; then check the scenario by hand.
 - Restore marker: the script keeps a file `pending-restore-<id>` in `~/Library/Application Support/ageledger-uitests/`. It holds the scenario to restore (or `unknown`). If it says `unknown` the script refuses to start until you have checked the scenario by hand and deleted the file.
@@ -151,7 +154,7 @@ All of the details (opt-in rows, the system sheet it stops on, what is recorded)
   Needs the `maui` workload and the Android SDK platforms 35/36 and build-tools (device-test-plan.md section 4).
 - Self-test: `scripts/selftest-android.sh <ANDROID_SERIAL>` (add `--real-play` to also run the opt-in suite against the real Play service). List the serial in `scripts/devices.local` first. It uses Google's `FakeAgeSignalsManager`, needs no account, and exits 0 only if every row passed. The script stops if the install is a Release build. See device-test-plan.md section 7.6.
 - In the app's Debug build a picker offers the Fake scenarios and a "Real manager" option.
-- The real Play manager: Google says the API is blocked for apps not installed through Google Play (`APP_NOT_OWNED`); license testers can bypass this for a sideloaded debug build if the package name matches an app in your Play Console and the device's Google Account is a license tester: [Test your Play Age Signals API (beta) integration](https://developer.android.com/google/play/age-signals/test-age-signals-api). This project saw `NotShared` for a sideloaded app with no Play Console app. It has **not** seen the real Play manager return a real age range (README, "Unverified"), so this guide does not say what you would see.
+- The real Play manager: Google says the API is blocked for "apps that aren't updated through Google Play" (`APP_NOT_OWNED`); license testers can bypass this for a sideloaded debug build if the package name matches an app in your Play Console and the device's Google Account is a license tester: [Test your Play Age Signals API (beta) integration](https://developer.android.com/google/play/age-signals/test-age-signals-api). This project saw `NotShared` for a sideloaded app with no Play Console app. It has **not** seen the real Play manager return a real age range (README, "Unverified"), so this guide does not say what you would see.
 
 ## Links checked
 
@@ -160,6 +163,7 @@ Checked 2026-10-27. "Loaded" means the page text was readable; "title only" mean
 | Page | Result |
 |---|---|
 | [Register an App ID](https://developer.apple.com/help/account/identifiers/register-an-app-id) | loaded |
+| [Create a certificate signing request](https://developer.apple.com/help/account/certificates/create-a-certificate-signing-request) | loaded |
 | [Register a single device](https://developer.apple.com/help/account/devices/register-a-single-device) | loaded |
 | [Create a development provisioning profile](https://developer.apple.com/help/account/provisioning-profiles/create-a-development-provisioning-profile) | loaded |
 | [Create a Sandbox Apple Account](https://developer.apple.com/help/app-store-connect/test-in-app-purchases/create-a-sandbox-apple-account) | loaded |
