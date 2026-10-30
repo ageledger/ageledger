@@ -76,6 +76,30 @@ AgeSignalsEvaluation e = await service.EvaluateAsync(cancellationToken);
 
 **Your own policy code.** An exception thrown by `SharedRangePolicy` propagates out of `EvaluateAsync` (nothing is logged); if it returns a value that is not a defined `AgeDecision`, `EvaluateAsync` throws `InvalidOperationException`.
 
+**With dependency injection.** `AddAgeledger` (namespace `Microsoft.Extensions.DependencyInjection`, so it shows up on `builder.Services` without an extra `using`) registers the options, the platform provider and backend, and `AgeSignalsService` as a singleton. Every registration is `TryAdd`, so anything you register first (your own provider, backend, `IDecisionLog`, options or `TimeProvider`) is kept. Call it once: a second call does not apply its `configure`.
+
+```csharp
+// MauiProgram.cs
+builder.Services.AddAgeledger(
+    Path.Combine(FileSystem.AppDataDirectory, "age-decisions.jsonl"),   // optional: registers a JsonFileDecisionLog; leave it out for no log
+    o =>
+    {
+        o.Enabled = true;
+        o.AgeGates = [13, 16, 18];
+        o.AppVersion = AppInfo.VersionString;
+        o.RuleId = "gate-v1";
+    });
+
+// Android needs the foreground activity (the iOS backend finds its own presenter):
+// builder.Services.AddAgeledger(() => Microsoft.Maui.ApplicationModel.Platform.CurrentActivity, o => { ... });
+// Without it the Android backend answers NoPresenter. The activity overload takes no path: to also keep a log on Android, register it first with
+// builder.Services.AddSingleton<IDecisionLog>(new JsonFileDecisionLog(path)).
+
+public class AgePage(AgeSignalsService service) { /* await service.EvaluateAsync(); */ }
+```
+
+`Enabled` stays false unless your `configure` sets it. No log is registered unless you pass a path or register an `IDecisionLog`. On plain net10.0 there is no platform, so no provider is registered: register an `IAgeSignalsProvider` (for example over the fakes from `Ageledger.Testing`) before resolving the service. `AgeSignalsService` validates the options when it is first resolved, so an enabled app with a bad setting fails there rather than at registration. The package depends on `Microsoft.Extensions.DependencyInjection.Abstractions` 10.0.0 (the same version a net10.0 app already has through MAUI or ASP.NET Core).
+
 iOS only, guarded by OS version inside the library (returns `null` / `Unsupported` on older iOS):
 
 ```csharp
@@ -138,7 +162,7 @@ Each entry has exactly five fields: `timestampUtc`, `ageBucket`, `decision`, `ap
 ## Layout
 
 ```
-src/Ageledger             library: net10.0 (model, mapping, policy, log), net10.0-android, net10.0-ios
+src/Ageledger             library: net10.0 (model, mapping, policy, log, AddAgeledger), net10.0-android, net10.0-ios
 src/Ageledger.Testing     fakes for both platforms (package Ageledger.Testing), plain net10.0
 src/Ageledger.IosBinding  net10.0-ios binding of the Swift wrapper (ApiDefinition.cs + the xcframework)
 native/ios                Swift wrapper source + build.sh (builds AgeledgerNative.xcframework, device + simulator arm64)
@@ -219,6 +243,7 @@ iOS Simulator (headless, iOS 26.5; these runs predate the sample's scene adoptio
 
 ## Unverified
 
+- `AddAgeledger` is covered by unit tests on plain net10.0 with fakes. The Android and iOS registrations (platform provider and backend, the activity overload) were built but not run on a device or Simulator through the container.
 - Replacing the workload-generated dSYM with the shipped one has not been tried.
 - Hosted CI and the release, as far as they have run (2026-10-27): the first GitHub-hosted CI run on `main` passed (`build-test` on the `xcode-27` image with Xcode 27.1; unit tests 480/480; release-push self-test 19/19; documentation link checks; package checks: 0 public binding types, 76 PDB document names in 3 PDBs, 2 dSYMs). `release.yml` ran once, for tag `v0.1.0-preview.1` (run 40601712391): `ci` and `build` passed, the publish job waited for the `release` environment's approval and was approved, and NuGet/login with trusted publishing then pushed `Ageledger` and `Ageledger.Testing`. The two pushes reported "Your package was pushed" four times in total: once for each `.nupkg` and once for each `.snupkg`. So pushing the `.snupkg` with the trusted-publishing key worked as part of `dotnet nuget push` of the `.nupkg`. Both versions were listed on nuget.org at about 19:36 ET.
 - Not exercised in that release: finishing a half-finished release by hand (the "half way" route in CONTRIBUTING); the "already exists" message of the push script, which keys on the `Response status code does not indicate success: 409 (...)` text that comes from the NuGet.Client and .NET runtime sources and has not been observed from nuget.org; and any re-run of the release workflow (including whether a re-run attempt can upload an artifact under the same name). The release has no automatic recovery. Pushing a `.snupkg` on its own by hand, and whether a "Push only new package versions" key is accepted for it, has not been tried.

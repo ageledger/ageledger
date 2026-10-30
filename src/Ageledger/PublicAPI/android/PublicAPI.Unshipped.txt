@@ -1,1 +1,2 @@
 #nullable enable
+static Microsoft.Extensions.DependencyInjection.AgeledgerServiceCollectionExtensions.AddAgeledger(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Func<Android.App.Activity?>! currentActivity, System.Action<Ageledger.AgeSignalsOptions!>? configure) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!

@@ -4,6 +4,10 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## Unreleased
 
+### Added
+
+- `AddAgeledger` (namespace `Microsoft.Extensions.DependencyInjection`): registers the options, the platform provider and backend, and `AgeSignalsService` as a singleton, all with `TryAdd` so your own registrations win. Overloads take a decision-log file path and, on Android, the foreground-activity function. Off by default; no log unless asked. New dependency: `Microsoft.Extensions.DependencyInjection.Abstractions` 10.0.0 (all three targets).
+
 ### Changed
 
 Copyright and package authorship are now 'The Ageledger Authors' / 'Ageledger'. The published 0.1.0-preview.1 package keeps its original metadata (nuget.org packages cannot be edited).

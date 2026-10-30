@@ -74,9 +74,9 @@ fi
 python3 -I - "$RUNNER_TEMP/inspect/nupkg/Ageledger.nuspec" <<'PY' || fail=1
 import sys, xml.etree.ElementTree as ET
 expected = {
-    "net10.0": set(),
-    "net10.0-android": {"Xamarin.Google.Android.Play.Age.Signals", "Xamarin.AndroidX.Lifecycle.LiveData.Core"},
-    "net10.0-ios": set(),
+    "net10.0": {"Microsoft.Extensions.DependencyInjection.Abstractions"},
+    "net10.0-android": {"Microsoft.Extensions.DependencyInjection.Abstractions", "Xamarin.Google.Android.Play.Age.Signals", "Xamarin.AndroidX.Lifecycle.LiveData.Core"},
+    "net10.0-ios": {"Microsoft.Extensions.DependencyInjection.Abstractions"},
 }
 groups = {}
 for el in ET.parse(sys.argv[1]).iter():
