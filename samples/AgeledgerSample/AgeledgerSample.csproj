@@ -15,8 +15,15 @@
     <LangVersion>latest</LangVersion>
     <IsPackable>false</IsPackable>
 
+    <!-- The app's bundle id (iOS) and package name (Android): one value for the sample, the scripts and the UI tests.
+         Order: -p:AgeledgerSampleId=..., the environment variable AGELEDGER_SAMPLE_ID, the first
+         line of the untracked scripts/sample-id.local (trimmed), then the default when there is no file (docs/try-the-sample.md). -->
+    <AgeledgerSampleIdFile>$(MSBuildThisFileDirectory)../../scripts/sample-id.local</AgeledgerSampleIdFile>
+    <AgeledgerSampleId Condition="'$(AgeledgerSampleId)' == ''">$(AGELEDGER_SAMPLE_ID)</AgeledgerSampleId>
+    <AgeledgerSampleId Condition="'$(AgeledgerSampleId)' == '' And Exists('$(AgeledgerSampleIdFile)')">$([System.Text.RegularExpressions.Regex]::Replace($([System.IO.File]::ReadAllText('$(AgeledgerSampleIdFile)')), '(?s)[\r\n].*$', '').Trim())</AgeledgerSampleId>
+    <AgeledgerSampleId Condition="'$(AgeledgerSampleId)' == '' And !Exists('$(AgeledgerSampleIdFile)')">com.ageledger.sample</AgeledgerSampleId>
     <ApplicationTitle>Ageledger Sample</ApplicationTitle>
-    <ApplicationId>com.ageledger.sample</ApplicationId>
+    <ApplicationId>$(AgeledgerSampleId)</ApplicationId>
     <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
     <ApplicationVersion>1</ApplicationVersion>
 
@@ -44,4 +51,11 @@
   <ItemGroup Condition="'$(Configuration)' == 'Debug'">
     <ProjectReference Include="..\..\src\Ageledger.Testing\Ageledger.Testing.csproj" />
   </ItemGroup>
+
+  <!-- Letters and digits in dot-separated parts, each starting with a letter: valid as an iOS bundle id and an Android package. -->
+  <Target Name="CheckAgeledgerSampleId" BeforeTargets="PrepareForBuild;ResolveAssemblyReferences">
+    <Error Condition="'$(AgeledgerSampleId)' == ''" Text="scripts/sample-id.local is present but its first line is empty." />
+    <Error Condition="!$([System.Text.RegularExpressions.Regex]::IsMatch('$(AgeledgerSampleId)', '^[A-Za-z][A-Za-z0-9]*(\.[A-Za-z][A-Za-z0-9]*)+$'))"
+           Text="AgeledgerSampleId '$(AgeledgerSampleId)' is not a valid app id (reverse-DNS letters and digits only, no hyphens, such as com.example.agesample)." />
+  </Target>
 </Project>

@@ -7,7 +7,7 @@
 #   scripts/ios-uitests.sh --udid <udid> --reinstall-probe --app <path to the sample .app>
 #
 # The sample must already be installed on the device; with --app it is installed first (preferred). --reinstall-probe
-# uninstalls ONLY com.ageledger.sample, installs it again from --app, then runs ReinstallProbeTests (the test turns
+# uninstalls ONLY the sample (scripts/lib/sample-id.sh), installs it again from --app, then runs ReinstallProbeTests (the test turns
 # Enabled back on, because a reinstall wipes the app's preferences).
 #
 # What it does: checks the device allowlist and the lock, runs the requested test (which reads the current Age Assurance
@@ -56,7 +56,9 @@ DEVICES_FILE="$ROOT/scripts/devices.local"
 SIGNING_FILE="$PROJECT_DIR/signing.local"
 LOCK_DIR="${AGELEDGER_LOCK_DIR:-${DEVICE_LOCK_DIR:-/tmp/device-locks}}"
 WHO="ageledger-uitests"
-SAMPLE_BUNDLE="com.ageledger.sample"
+# shellcheck source=lib/sample-id.sh
+source "$ROOT/scripts/lib/sample-id.sh"
+SAMPLE_BUNDLE="$SAMPLE_ID"
 
 udid=""; test_id=""; app_path=""; lock_timeout=600; reinstall=0; assume_off=0; row_test=""
 while [[ $# -gt 0 ]]; do
@@ -174,6 +176,7 @@ run_xcb() {
     -derivedDataPath "$dd_path" \
     -collect-test-diagnostics never \
     -resultBundlePath "$out/$name.xcresult" \
+    AGELEDGER_SAMPLE_ID="$SAMPLE_ID" \
     CODE_SIGN_STYLE=Manual \
     CODE_SIGN_IDENTITY="Apple Development" \
     DEVELOPMENT_TEAM="$TEAM_ID" \

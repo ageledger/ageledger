@@ -8,6 +8,8 @@ TestResults/
 
 # Local device allowlist for the self-test scripts (copy scripts/devices.local.example)
 scripts/devices.local
+# Local override of the sample app id (see docs/try-the-sample.md)
+scripts/sample-id.local
 
 # UI-test project is generated; signing values stay local
 tests/ios-device-uitests/*.xcodeproj/
