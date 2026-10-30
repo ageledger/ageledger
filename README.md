@@ -76,29 +76,31 @@ AgeSignalsEvaluation e = await service.EvaluateAsync(cancellationToken);
 
 **Your own policy code.** An exception thrown by `SharedRangePolicy` propagates out of `EvaluateAsync` (nothing is logged); if it returns a value that is not a defined `AgeDecision`, `EvaluateAsync` throws `InvalidOperationException`.
 
-**With dependency injection.** `AddAgeledger` (namespace `Microsoft.Extensions.DependencyInjection`, so it shows up on `builder.Services` without an extra `using`) registers the options, the platform provider and backend, and `AgeSignalsService` as a singleton. Every registration is `TryAdd`, so anything you register first (your own provider, backend, `IDecisionLog`, options or `TimeProvider`) is kept. Call it once: a second call does not apply its `configure`.
+**With dependency injection.** Three small calls (namespace `Microsoft.Extensions.DependencyInjection`, so they show up on `builder.Services` without an extra using) wire up `AgeSignalsService`. Every registration is `TryAdd`, so anything you register first (your own provider, backend, `IDecisionLog`, options or `TimeProvider`) is kept; your own options and `TimeProvider` must be singletons.
+
+- `AddAgeledger(configure)`: the options (built from `configure` when first resolved), the platform provider and backend, and `AgeSignalsService`, all singletons. Call it once: a second call keeps the first registration and does not run its `configure`. No decision log is registered.
+- `AddAgeledgerFileLog(path)`: a `JsonFileDecisionLog` at `path` that uses the container's `TimeProvider`, so the log and the service share one clock.
+- `AddAgeledgerActivity(() => activity)`, Android only: where the foreground activity comes from. With the service enabled and no activity registered, resolving the service throws `InvalidOperationException`; while it is disabled nothing is needed.
 
 ```csharp
 // MauiProgram.cs
-builder.Services.AddAgeledger(
-    Path.Combine(FileSystem.AppDataDirectory, "age-decisions.jsonl"),   // optional: registers a JsonFileDecisionLog; leave it out for no log
-    o =>
-    {
-        o.Enabled = true;
-        o.AgeGates = [13, 16, 18];
-        o.AppVersion = AppInfo.VersionString;
-        o.RuleId = "gate-v1";
-    });
-
-// Android needs the foreground activity (the iOS backend finds its own presenter):
-// builder.Services.AddAgeledger(() => Microsoft.Maui.ApplicationModel.Platform.CurrentActivity, o => { ... });
-// Without it the Android backend answers NoPresenter. The activity overload takes no path: to also keep a log on Android, register it first with
-// builder.Services.AddSingleton<IDecisionLog>(new JsonFileDecisionLog(path)).
+builder.Services.AddAgeledger(o =>
+{
+    o.Enabled = true;
+    o.AgeGates = [13, 16, 18];
+    o.AppVersion = "1.4.2";          // your app's version, "1.4.2" or "1.4.2-beta1"; no build suffix such as "(57)"
+    o.RuleId = "gate-v1";
+});
+builder.Services.AddAgeledgerFileLog(Path.Combine(FileSystem.AppDataDirectory, "age-decisions.jsonl"));   // optional
+#if ANDROID
+// With MAUI this is the usual source; the library itself has no MAUI dependency.
+builder.Services.AddAgeledgerActivity(() => Microsoft.Maui.ApplicationModel.Platform.CurrentActivity);
+#endif
 
 public class AgePage(AgeSignalsService service) { /* await service.EvaluateAsync(); */ }
 ```
 
-`Enabled` stays false unless your `configure` sets it. No log is registered unless you pass a path or register an `IDecisionLog`. On plain net10.0 there is no platform, so no provider is registered: register an `IAgeSignalsProvider` (for example over the fakes from `Ageledger.Testing`) before resolving the service. `AgeSignalsService` validates the options when it is first resolved, so an enabled app with a bad setting fails there rather than at registration. The package depends on `Microsoft.Extensions.DependencyInjection.Abstractions` 10.0.0 (the same version a net10.0 app already has through MAUI or ASP.NET Core).
+`Enabled` stays false unless your `configure` sets it. `AgeSignalsService` checks the options when it is first resolved, so resolve it once at start-up (for example `app.Services.GetRequiredService<AgeSignalsService>()`) to find a bad setting early instead of at first use. On Mac Catalyst, Windows and plain net10.0 the package's net10.0 assembly is used and `AddAgeledger` registers a provider that makes no platform call: an enabled service reports `Unavailable` / `NotAvailable` (platform `None`, decision `NoSignalDecision`). The package depends on `Microsoft.Extensions.DependencyInjection.Abstractions` 10.0.0, which a MAUI 10 or ASP.NET Core app already has.
 
 iOS only, guarded by OS version inside the library (returns `null` / `Unsupported` on older iOS):
 
@@ -178,6 +180,7 @@ Requirements for an app:
 - **Android:** API 23+ and Play Store/Play Services.
   - The library's Android target references `Xamarin.AndroidX.Lifecycle.LiveData.Core` 2.11.0.1, so an Android app on MAUI 10.0.20 needs no manual pin to avoid NU1107 (seen when an app referenced both MAUI 10.0.20 and the age-signals binding). That reference pins `Xamarin.AndroidX.Lifecycle.Common` to [2.11.0.1, 2.11.1); an app that needs a newer version can add its own higher reference.
   - Restoring an Android app on MAUI 10.0.20 prints NU1608 warnings (Lifecycle Ktx, ViewModel and SavedState packages outside their dependency constraints). They appear because the AndroidX Lifecycle packages are raised above the 2.9.x range that MAUI's own packages declare; an app that does not want them can set `<NoWarn>NU1608</NoWarn>`.
+- **Mac Catalyst, Windows and plain net10.0:** the package's net10.0 assembly is used. There is no platform age signal there: with the service enabled and a provider from `AddAgeledger`, it reports `Unavailable` / `NotAvailable` (not run on those platforms; see Unverified).
 - **iOS:** iOS 15.0+ to install; below iOS 26 the service reports Unavailable/Unsupported (the platform API starts at iOS 26.0, and the regulatory calls at 26.2 and 26.4).
   - Building the Swift wrapper needs the iOS 26.4 SDK or newer: `native/ios/build.sh` and the Swift source fail the build otherwise, instead of producing a framework that always reports not available.
   - The app needs the **Declared Age Range** capability, i.e. the entitlement `com.apple.developer.declared-age-range` in `Entitlements.plist`:
@@ -243,7 +246,7 @@ iOS Simulator (headless, iOS 26.5; these runs predate the sample's scene adoptio
 
 ## Unverified
 
-- `AddAgeledger` is covered by unit tests on plain net10.0 with fakes. The Android and iOS registrations (platform provider and backend, the activity overload) were built but not run on a device or Simulator through the container.
+- `AddAgeledger`, `AddAgeledgerFileLog` and the unsupported-platform provider are covered by unit tests on plain net10.0 with a minimal in-test container (singleton registrations only); the real `Microsoft.Extensions.DependencyInjection` container (scope and build validation) was not used. The Android and iOS registrations (platform provider and backend, `AddAgeledgerActivity`) are compile-only: not run on a device or Simulator. The Mac Catalyst and Windows path (the unsupported-platform provider in a real app) has not been run.
 - Replacing the workload-generated dSYM with the shipped one has not been tried.
 - Hosted CI and the release, as far as they have run (2026-10-27): the first GitHub-hosted CI run on `main` passed (`build-test` on the `xcode-27` image with Xcode 27.1; unit tests 480/480; release-push self-test 19/19; documentation link checks; package checks: 0 public binding types, 76 PDB document names in 3 PDBs, 2 dSYMs). `release.yml` ran once, for tag `v0.1.0-preview.1` (run 40601712391): `ci` and `build` passed, the publish job waited for the `release` environment's approval and was approved, and NuGet/login with trusted publishing then pushed `Ageledger` and `Ageledger.Testing`. The two pushes reported "Your package was pushed" four times in total: once for each `.nupkg` and once for each `.snupkg`. So pushing the `.snupkg` with the trusted-publishing key worked as part of `dotnet nuget push` of the `.nupkg`. Both versions were listed on nuget.org at about 19:36 ET.
 - Not exercised in that release: finishing a half-finished release by hand (the "half way" route in CONTRIBUTING); the "already exists" message of the push script, which keys on the `Response status code does not indicate success: 409 (...)` text that comes from the NuGet.Client and .NET runtime sources and has not been observed from nuget.org; and any re-run of the release workflow (including whether a re-run attempt can upload an artifact under the same name). The release has no automatic recovery. Pushing a `.snupkg` on its own by hand, and whether a "Push only new package versions" key is accepted for it, has not been tried.

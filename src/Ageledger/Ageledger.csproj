@@ -45,7 +45,7 @@
     <AdditionalFiles Include="PublicAPI\ios\PublicAPI.Shipped.txt;PublicAPI\ios\PublicAPI.Unshipped.txt" Condition="$(TargetFramework.Contains('-ios'))" />
   </ItemGroup>
   <ItemGroup>
-    <!-- For AddAgeledger (dependency injection). 10.0.0 is the version every net10.0 app already has or exceeds, so it adds no package of its own to an app that has MAUI or ASP.NET Core. -->
+    <!-- For AddAgeledger (dependency injection). New for apps that use neither MAUI nor ASP.NET Core; a MAUI 10 app already brings Microsoft.Extensions.DependencyInjection (and so these abstractions) at 10.0.0 or higher, so it gains no extra package. -->
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
   </ItemGroup>
   <ItemGroup>

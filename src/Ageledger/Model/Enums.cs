@@ -3,7 +3,7 @@ namespace Ageledger;
 /// <summary>Which platform produced a signal.</summary>
 public enum AgeSignalsPlatform
 {
-    /// <summary>No platform was asked (the disabled result).</summary>
+    /// <summary>No platform was asked: the service is disabled, or this build has no platform with age signals.</summary>
     None = 0,
     /// <summary>Google Play Age Signals.</summary>
     Android = 1,

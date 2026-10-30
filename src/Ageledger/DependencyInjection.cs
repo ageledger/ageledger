@@ -8,35 +8,32 @@ namespace Microsoft.Extensions.DependencyInjection;
 
 /// <summary>
 /// Registers <see cref="AgeSignalsService"/> and what it needs in a dependency-injection container.
-/// Every registration uses <c>TryAdd</c>, so a service you registered before calling <c>AddAgeledger</c> is kept.
-/// Call <c>AddAgeledger</c> once: options are registered by the first call, a later call does not apply its <c>configure</c> callback.
+/// Every registration uses <c>TryAdd</c>, so a service you registered before calling these methods is kept.
 /// </summary>
 /// <remarks>
-/// The service stays off until <see cref="AgeSignalsOptions.Enabled"/> is set to true. This only wires objects together;
-/// it does not make an app compliant with any law.
-/// What is registered, by target:
-/// Android and iOS get the platform provider and backend (Android needs the foreground activity, see the overload that takes it);
-/// plain net10.0 has no platform, so register an <see cref="IAgeSignalsProvider"/> yourself (for example one over the fakes in the Ageledger.Testing package) before resolving the service.
-/// No decision log is registered unless you use the overload that takes a file path, or register an <see cref="IDecisionLog"/> yourself: without one the service logs nothing.
-/// An optional <see cref="TimeProvider"/> in the container is passed to the service.
+/// The service stays off until <see cref="AgeSignalsOptions.Enabled"/> is set to true. This only wires objects together; it does not make an app compliant with any law.
+/// What <see cref="AddAgeledger"/> registers, by target:
+/// Android and iOS get the platform provider and backend; every other target (plain net10.0, including Mac Catalyst and Windows heads) gets a provider that reports
+/// <see cref="AgeSignalsState.Unavailable"/> / <see cref="AgeSignalsError.NotAvailable"/> without any platform call.
+/// No decision log is registered unless you call <see cref="AddAgeledgerFileLog"/> or register an <see cref="IDecisionLog"/> yourself: without one the service logs nothing.
+/// The options and the service are singletons. A <see cref="TimeProvider"/> or <see cref="AgeSignalsOptions"/> you register yourself must be registered as a singleton too.
+/// The options are built, and checked by the service, when the service is first resolved: resolve <see cref="AgeSignalsService"/> once at start-up to find a bad setting early.
 /// </remarks>
 public static class AgeledgerServiceCollectionExtensions
 {
-    /// <summary>Registers the same as <see cref="AddAgeledger(IServiceCollection, Action{AgeSignalsOptions}?)"/> with the default options (off).</summary>
-    /// <param name="services">The container to add to.</param>
-    /// <returns><paramref name="services"/>, for chaining.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="services"/> is null.</exception>
-    public static IServiceCollection AddAgeledger(this IServiceCollection services) => services.AddAgeledger((Action<AgeSignalsOptions>?)null);
-
     /// <summary>
     /// Registers the options (a new <see cref="AgeSignalsOptions"/> with <paramref name="configure"/> applied when first resolved), the platform provider and backend,
-    /// and <see cref="AgeSignalsService"/> as a singleton. No decision log is registered.
+    /// and <see cref="AgeSignalsService"/>. No decision log is registered.
     /// </summary>
+    /// <remarks>
+    /// Call this once. A second call (or options you registered earlier) keeps the first registration and does not invoke its <paramref name="configure"/>.
+    /// On Android also call <c>AddAgeledgerActivity</c>; the service refuses to be created enabled without it.
+    /// </remarks>
     /// <param name="services">The container to add to.</param>
-    /// <param name="configure">Sets the options (null leaves the defaults). Not called if <see cref="AgeSignalsOptions"/> was already registered.</param>
+    /// <param name="configure">Sets the options. Null leaves the defaults (off).</param>
     /// <returns><paramref name="services"/>, for chaining.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="services"/> is null.</exception>
-    public static IServiceCollection AddAgeledger(this IServiceCollection services, Action<AgeSignalsOptions>? configure)
+    public static IServiceCollection AddAgeledger(this IServiceCollection services, Action<AgeSignalsOptions>? configure = null)
     {
         ArgumentNullException.ThrowIfNull(services);
         services.TryAddSingleton(_ =>
@@ -46,11 +43,19 @@ public static class AgeledgerServiceCollectionExtensions
             return options;
         });
 #if ANDROID
-        services.TryAddSingleton<IAndroidAgeSignalsBackend>(sp => new GoogleAgeSignalsBackend(sp.GetService<Func<Activity?>>() ?? (() => null)));
+        services.TryAddSingleton<IAndroidAgeSignalsBackend>(sp =>
+        {
+            var source = sp.GetService<AgeledgerActivitySource>();
+            if (source is null && sp.GetRequiredService<AgeSignalsOptions>().Enabled)
+                throw new InvalidOperationException("On Android call services.AddAgeledgerActivity(() => <current activity>) so the consent screen has an activity.");
+            return new GoogleAgeSignalsBackend(source?.Get ?? (() => null));
+        });
         services.TryAddSingleton<IAgeSignalsProvider>(sp => new AndroidAgeSignalsProvider(sp.GetRequiredService<IAndroidAgeSignalsBackend>()));
 #elif IOS
         services.TryAddSingleton<IAppleAgeRangeBackend>(_ => new AppleAgeRangeBackend());
         services.TryAddSingleton<IAgeSignalsProvider>(sp => new AppleAgeSignalsProvider(sp.GetRequiredService<IAppleAgeRangeBackend>()));
+#else
+        services.TryAddSingleton<IAgeSignalsProvider>(_ => new UnsupportedAgeSignalsProvider());
 #endif
         services.TryAddSingleton(sp => new AgeSignalsService(
             sp.GetRequiredService<AgeSignalsOptions>(),
@@ -61,40 +66,41 @@ public static class AgeledgerServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Like <see cref="AddAgeledger(IServiceCollection, Action{AgeSignalsOptions}?)"/>, and also registers a <see cref="JsonFileDecisionLog"/> at <paramref name="decisionLogPath"/>
-    /// (default limits: 1000 entries, 365 days) unless an <see cref="IDecisionLog"/> is already registered.
+    /// Registers a <see cref="JsonFileDecisionLog"/> at <paramref name="path"/> (default limits: 1000 entries, 365 days) unless an <see cref="IDecisionLog"/> is already registered.
+    /// It uses the container's <see cref="TimeProvider"/> if there is one, so the log and the service share a clock.
     /// </summary>
     /// <param name="services">The container to add to.</param>
-    /// <param name="decisionLogPath">The log file, for example under the app's private data directory. The file is created when the first entry is written.</param>
-    /// <param name="configure">Sets the options (null leaves the defaults). Not called if <see cref="AgeSignalsOptions"/> was already registered.</param>
+    /// <param name="path">The log file, for example under the app's private data directory. The folder is created when the first entry is written.</param>
     /// <returns><paramref name="services"/>, for chaining.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="services"/> is null.</exception>
-    /// <exception cref="ArgumentException"><paramref name="decisionLogPath"/> is null, empty or white space.</exception>
-    public static IServiceCollection AddAgeledger(this IServiceCollection services, string decisionLogPath, Action<AgeSignalsOptions>? configure)
+    /// <exception cref="ArgumentException"><paramref name="path"/> is null, empty or white space.</exception>
+    public static IServiceCollection AddAgeledgerFileLog(this IServiceCollection services, string path)
     {
         ArgumentNullException.ThrowIfNull(services);
-        ArgumentException.ThrowIfNullOrWhiteSpace(decisionLogPath);
-        services.TryAddSingleton<IDecisionLog>(_ => new JsonFileDecisionLog(decisionLogPath));
-        return services.AddAgeledger(configure);
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        services.TryAddSingleton<IDecisionLog>(sp => new JsonFileDecisionLog(path, time: sp.GetService<TimeProvider>()));
+        return services;
     }
 
 #if ANDROID
     /// <summary>
-    /// Android: like <see cref="AddAgeledger(IServiceCollection, Action{AgeSignalsOptions}?)"/>, with the function that returns the foreground activity
-    /// (in a MAUI app: <c>() =&gt; Microsoft.Maui.ApplicationModel.Platform.CurrentActivity</c>). Without it the backend reports
-    /// <see cref="AgeSignalsError.NoPresenter"/> when asked. It is called on the main thread.
+    /// Android: registers the function that returns the foreground activity (in a MAUI app usually <c>() =&gt; Microsoft.Maui.ApplicationModel.Platform.CurrentActivity</c>;
+    /// the library itself has no MAUI dependency). It is called on the main thread. If the service is enabled and this was not called,
+    /// resolving the service throws <see cref="InvalidOperationException"/>. When it is disabled the activity is not needed.
     /// </summary>
     /// <param name="services">The container to add to.</param>
     /// <param name="currentActivity">Returns the foreground activity, or null when there is none.</param>
-    /// <param name="configure">Sets the options. Not called if <see cref="AgeSignalsOptions"/> was already registered.</param>
     /// <returns><paramref name="services"/>, for chaining.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="services"/> or <paramref name="currentActivity"/> is null.</exception>
-    public static IServiceCollection AddAgeledger(this IServiceCollection services, Func<Activity?> currentActivity, Action<AgeSignalsOptions>? configure)
+    public static IServiceCollection AddAgeledgerActivity(this IServiceCollection services, Func<Activity?> currentActivity)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(currentActivity);
-        services.TryAddSingleton(currentActivity);
-        return services.AddAgeledger(configure);
+        services.TryAddSingleton(new AgeledgerActivitySource(currentActivity));
+        return services;
     }
+
+    // Wraps the delegate so no bare Func<Activity?> is registered in the app's container.
+    internal sealed record AgeledgerActivitySource(Func<Activity?> Get);
 #endif
 }
