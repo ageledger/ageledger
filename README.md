@@ -1,6 +1,6 @@
 # Ageledger
 
-> Licensed under the Apache License 2.0. Source and issues: <https://github.com/ageledger/ageledger>. Version 0.1.0-preview.1 is a preview: the API can still change.
+> Licensed under the Apache License 2.0. Source and issues: <https://github.com/ageledger/ageledger>. Version 0.1.0-preview.2 is a preview: the API can still change.
 
 [![NuGet Ageledger](https://img.shields.io/nuget/vpre/Ageledger?label=Ageledger)](https://www.nuget.org/packages/Ageledger) [![NuGet Ageledger.Testing](https://img.shields.io/nuget/vpre/Ageledger.Testing?label=Ageledger.Testing)](https://www.nuget.org/packages/Ageledger.Testing)
 
@@ -16,7 +16,7 @@ provide, and keeps a **minimal local log of the decisions the app made**.
 dotnet add package Ageledger --prerelease
 ```
 
-(or `--version 0.1.0-preview.1` to pin it). Add it to the app project. For tests, add the fakes to a test project only, on the same version:
+(or `--version 0.1.0-preview.2` to pin it). Add it to the app project. For tests, add the fakes to a test project only, on the same version:
 
 ```
 dotnet add package Ageledger.Testing --prerelease

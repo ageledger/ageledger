@@ -4,19 +4,28 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## Unreleased
 
+## 0.1.0-preview.2 (2026-10-30)
+
 ### Added
 
-- Dependency-injection helpers (namespace `Microsoft.Extensions.DependencyInjection`): `AddAgeledger(configure)` registers the options, the platform provider and backend, and `AgeSignalsService` as singletons; `AddAgeledgerFileLog(path)` registers a `JsonFileDecisionLog` on the container's `TimeProvider`; on Android `AddAgeledgerActivity(...)` supplies the foreground activity. All `TryAdd`, off by default, no log unless asked. Builds with no platform (plain net10.0, Mac Catalyst, Windows) get the new public `NoAgeSignalsProvider`, which reports Unavailable / NotAvailable. Several `AddAgeledger` calls add their `configure` callbacks in call order. New dependency: `Microsoft.Extensions.DependencyInjection.Abstractions` 10.0.0 (all three targets).
+- Dependency-injection helpers (namespace `Microsoft.Extensions.DependencyInjection`): `AddAgeledger(configure)` registers the options and `AgeSignalsService` as singletons, plus the platform provider and backend on Android and iOS; `AddAgeledgerFileLog(path)` registers a `JsonFileDecisionLog` that uses the container's `TimeProvider`, if one is registered (otherwise the system clock); on Android `AddAgeledgerActivity(...)` supplies the foreground activity. On Android, resolving the service with `Enabled = true` and no `AddAgeledgerActivity` throws `InvalidOperationException`. All `TryAdd`, off by default, no log unless asked. Builds with no platform (plain net10.0, Mac Catalyst, Windows) get the new public `NoAgeSignalsProvider`, which reports Unavailable / NotAvailable. Several `AddAgeledger` calls add their `configure` callbacks in call order. New dependency: `Microsoft.Extensions.DependencyInjection.Abstractions` 10.0.0 (all three targets).
 
 ### Changed
 
-Copyright and package authorship are now 'The Ageledger Authors' / 'Ageledger'. The published 0.1.0-preview.1 package keeps its original metadata (nuget.org packages cannot be edited).
+- Copyright and package authorship are now 'The Ageledger Authors' / 'Ageledger'. The published 0.1.0-preview.1 package keeps its original metadata (nuget.org packages cannot be edited).
+- The public API baseline files now record the 0.1.0-preview.1 API as shipped.
+- The sample's self-test row L4 now seeds 1000 log lines and does one real append, instead of 1001 appends that could exceed its timeout on an older phone. Nothing in the library changed.
+- README: `JsonFileDecisionLog` appends flush the whole file to disk each time; the cost per append is now stated.
+- `docs/try-the-sample.md`: a guide for running the sample app on your own devices (own app id, Apple sandbox account, Android).
+- The sample's app id is one setting (`scripts/sample-id.local`, environment variable `AGELEDGER_SAMPLE_ID` or `-p:AgeledgerSampleId`; default `com.ageledger.sample`). The Android self-test script resolves the launcher activity instead of using a fixed name. Nothing in the library changed.
+- README: an "Alternatives" section lists other libraries and samples for the same platform APIs.
+- README: NuGet badges; the Unverified list now records the first hosted CI run and release.
 
-The public API baseline files now record the 0.1.0-preview.1 API as shipped.
+### Not verified
 
-The sample's self-test row L4 now seeds 1000 log lines and does one real append, instead of 1001 appends that could exceed its timeout on an older phone. Nothing in the library changed.
-
-README: `JsonFileDecisionLog` appends flush the whole file to disk each time; the cost per append is now stated.
+- The dependency-injection registrations for Android and iOS (provider, backend, `AddAgeledgerActivity`) are compile-only: they have not run on a device or Simulator.
+- The `NoAgeSignalsProvider` path on Mac Catalyst and Windows has not run in a real app.
+- The "Unverified" list in `README.md` is the full list.
 
 ## 0.1.0-preview.1 (2026-10-27)
 

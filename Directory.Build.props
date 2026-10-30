@@ -7,7 +7,7 @@
   <PropertyGroup>
     <!-- One version for every package (Ageledger and Ageledger.Testing, which depends on exactly the same Ageledger version, written "[version]" in its nuspec).
          A release overrides it on the command line with -p:Version=... (a global property wins over this line; an environment variable does not) -->
-    <Version>0.1.0-preview.1</Version>
+    <Version>0.1.0-preview.2</Version>
   </PropertyGroup>
   <PropertyGroup>
     <Deterministic>true</Deterministic>
