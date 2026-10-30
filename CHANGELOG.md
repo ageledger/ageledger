@@ -4,19 +4,21 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## Unreleased
 
+## 0.1.0-preview.2 (2026-10-30)
+
 ### Added
 
 - Dependency-injection helpers (namespace `Microsoft.Extensions.DependencyInjection`): `AddAgeledger(configure)` registers the options, the platform provider and backend, and `AgeSignalsService` as singletons; `AddAgeledgerFileLog(path)` registers a `JsonFileDecisionLog` on the container's `TimeProvider`; on Android `AddAgeledgerActivity(...)` supplies the foreground activity. All `TryAdd`, off by default, no log unless asked. Builds with no platform (plain net10.0, Mac Catalyst, Windows) get the new public `NoAgeSignalsProvider`, which reports Unavailable / NotAvailable. Several `AddAgeledger` calls add their `configure` callbacks in call order. New dependency: `Microsoft.Extensions.DependencyInjection.Abstractions` 10.0.0 (all three targets).
 
 ### Changed
 
-Copyright and package authorship are now 'The Ageledger Authors' / 'Ageledger'. The published 0.1.0-preview.1 package keeps its original metadata (nuget.org packages cannot be edited).
-
-The public API baseline files now record the 0.1.0-preview.1 API as shipped.
-
-The sample's self-test row L4 now seeds 1000 log lines and does one real append, instead of 1001 appends that could exceed its timeout on an older phone. Nothing in the library changed.
-
-README: `JsonFileDecisionLog` appends flush the whole file to disk each time; the cost per append is now stated.
+- Copyright and package authorship are now 'The Ageledger Authors' / 'Ageledger'. The published 0.1.0-preview.1 package keeps its original metadata (nuget.org packages cannot be edited).
+- The public API baseline files now record the 0.1.0-preview.1 API as shipped.
+- The sample's self-test row L4 now seeds 1000 log lines and does one real append, instead of 1001 appends that could exceed its timeout on an older phone. Nothing in the library changed.
+- README: `JsonFileDecisionLog` appends flush the whole file to disk each time; the cost per append is now stated.
+- `docs/try-the-sample.md`: a guide for running the sample app on your own devices (own app id, Apple sandbox account, Play setup).
+- The sample's app id is one setting (`scripts/sample-id.local`, environment variable `AGELEDGER_SAMPLE_ID` or `-p:AgeledgerSampleId`; default `com.ageledger.sample`). The Android self-test script resolves the launcher activity instead of using a fixed name. Nothing in the library changed.
+- README: an "Alternatives" section lists other libraries and samples for the same platform APIs.
 
 ## 0.1.0-preview.1 (2026-10-27)
 
