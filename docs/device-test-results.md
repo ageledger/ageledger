@@ -211,3 +211,15 @@ iPhone notes:
 - Two earlier attempts of the six-scenario run timed out waiting on an authentication element that was not on screen. The test now waits only for a visible prompt, then for the Account Settings and Age Assurance markers.
 - The six-scenario run's end-of-run restore hit a real Touch ID prompt that was not answered in time; the restore failed without tapping anything, and the scenario was set back to Off by hand.
 - The I18 run was a separate run afterwards; its restore needed no hand reset and read back Off.
+
+## Runs on 2026-10-30
+
+Pixel 4a (Android 13), Debug sample, self-test (`scripts/selftest-android.sh --real-play`), from the change that seeds row L4 (on top of the single sample-id setting and the launcher-resolved launch):
+
+- The launch resolved the sample's launcher activity (`com.ageledger.sample/<generated>.MainActivity`) and started it with `am start -n`; it also worked with an overridden sample id (`com.example.agesample`) on an earlier build of the same launch change.
+- Suite `all`: 57 passed, 0 failed. Row L4 (1000 seeded entries plus one real append, the oldest dropped) passed in about 0.5 s.
+- Restart check: `l3-write` 1/1, `l3-read` 1/1.
+- Real Play manager (A20, recorded, not asserted): `NotShared`, no error, logged.
+- Before this change, the old L4 (1001 real appends) timed out at its 150 s limit on this phone, on main as well: each append flushes the whole file to disk, about 150 ms on this device.
+
+iPhone (iOS 27.0.1, Apple sandbox account), I18 UI test from main on 2026-10-30: the timeout pass again ended with `Error` / `Timeout` at about 15.2 s; the Cancel pass was not exercised (the UI test did not find the `cancel` control in the sample's accessibility tree); the scenario read back Off at the end.
