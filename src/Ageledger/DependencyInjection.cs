@@ -28,9 +28,9 @@ public static class AgeledgerServiceCollectionExtensions
     /// </summary>
     /// <remarks>
     /// More than one call is allowed: every <paramref name="configure"/> is kept and they all run, in the order of the calls, on the one options instance; everything else is registered once.
-    /// If you register your own <see cref="AgeSignalsOptions"/> instance, before or after any call to this method, that instance is the one used and no <paramref name="configure"/> is invoked.
+    /// If you register your own <see cref="AgeSignalsOptions"/> instance with <c>AddSingleton</c>, before or after any call to this method, that instance is the one used and no <paramref name="configure"/> is invoked (a <c>TryAddSingleton</c> after this method is ignored, as usual for TryAdd).
     /// Register everything before the container is built.
-    /// If a <paramref name="configure"/> throws, resolving the options (and so the service) fails and nothing is cached: a later resolve runs every configure again on a new options instance.
+    /// If a <paramref name="configure"/> throws, resolving the options (and so the service) fails and neither the options nor the service is cached: a later resolve runs every configure again on a new options instance.
     /// On Android also call <c>AddAgeledgerActivity</c>; the service refuses to be created enabled without it.
     /// </remarks>
     /// <param name="services">The container to add to.</param>

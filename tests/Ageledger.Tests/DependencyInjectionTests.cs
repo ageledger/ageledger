@@ -1,6 +1,7 @@
 using Ageledger;
 using Ageledger.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using static Ageledger.Tests.Helpers;
 
 namespace Ageledger.Tests;
@@ -120,10 +121,41 @@ public class DependencyInjectionTests
         services.AddAgeledger(_ => firstRuns++);
         services.AddAgeledger(_ => throw new InvalidOperationException("bad setting"));
         var sp = Build(services);
-        Assert.Throws<InvalidOperationException>(() => sp.GetRequiredService<AgeSignalsService>());
+        var first = Assert.Throws<InvalidOperationException>(() => sp.GetRequiredService<AgeSignalsService>());
+        Assert.Equal("bad setting", first.Message);
         Assert.Equal(1, firstRuns);
-        Assert.Throws<InvalidOperationException>(() => sp.GetRequiredService<AgeSignalsService>());
+        var second = Assert.Throws<InvalidOperationException>(() => sp.GetRequiredService<AgeSignalsService>());
+        Assert.Equal("bad setting", second.Message);
         Assert.Equal(2, firstRuns);
+    }
+
+    [Fact]
+    public void A_resolve_after_a_failed_one_runs_every_configure_on_a_new_options_instance()
+    {
+        var seen = new List<AgeSignalsOptions>();
+        var secondRuns = 0;
+        var services = WithFakeProvider();
+        services.AddAgeledger(o => seen.Add(o));
+        services.AddAgeledger(_ => { if (secondRuns++ == 0) throw new InvalidOperationException("bad setting"); });
+        var sp = Build(services);
+        Assert.Throws<InvalidOperationException>(() => sp.GetRequiredService<AgeSignalsService>());
+        sp.GetRequiredService<AgeSignalsService>();
+        Assert.Equal(2, seen.Count);
+        Assert.NotSame(seen[0], seen[1]);
+        Assert.Same(seen[1], sp.GetRequiredService<AgeSignalsOptions>());
+    }
+
+    [Fact]
+    public void A_TryAddSingleton_of_options_after_AddAgeledger_is_ignored()
+    {
+        var configureRan = false;
+        var mine = new AgeSignalsOptions();
+        var services = WithFakeProvider();
+        services.AddAgeledger(_ => configureRan = true);
+        services.TryAddSingleton(mine);
+        var sp = Build(services);
+        Assert.NotSame(mine, sp.GetRequiredService<AgeSignalsOptions>());
+        Assert.True(configureRan);
     }
 
     [Fact]
