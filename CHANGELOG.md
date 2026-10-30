@@ -14,6 +14,10 @@ Copyright and package authorship are now 'The Ageledger Authors' / 'Ageledger'. 
 
 The public API baseline files now record the 0.1.0-preview.1 API as shipped.
 
+The sample's self-test row L4 now seeds 1000 log lines and does one real append, instead of 1001 appends that could exceed its timeout on an older phone. Nothing in the library changed.
+
+README: `JsonFileDecisionLog` appends flush the whole file to disk each time; the cost per append is now stated.
+
 ## 0.1.0-preview.1 (2026-10-27)
 
 First preview release. Everything below ships in `Ageledger` and `Ageledger.Testing`; the public API may still change before 1.0.
