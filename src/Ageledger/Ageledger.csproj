@@ -35,7 +35,7 @@
     Types every target has are listed in PublicAPI.*.txt next to this file; types that only one platform build has (GoogleAgeSignalsBackend, AppleAgeRangeBackend)
     are listed in PublicAPI/<android|ios>/PublicAPI.*.txt, which only that target compiles in. The analyzer reads every file named PublicAPI.Shipped.txt or
     PublicAPI.Unshipped.txt it is given and merges them, so each target sees the common list plus its own.
-    Nothing is released yet, so the Shipped files stay empty; move lines from Unshipped to Shipped when a version is published.
+    The Shipped files record the API published as of 0.1.0-preview.1. New public API goes in Unshipped and moves to Shipped when the version containing it is published.
   -->
   <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="[5.6.0]" PrivateAssets="all" />

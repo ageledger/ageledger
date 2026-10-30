@@ -1,1 +1,295 @@
 #nullable enable
+Ageledger.AgeBucketLogging
+Ageledger.AgeBucketLogging.Exact = 0 -> Ageledger.AgeBucketLogging
+Ageledger.AgeBucketLogging.Withheld = 1 -> Ageledger.AgeBucketLogging
+Ageledger.AgeDecision
+Ageledger.AgeDecision.Allowed = 1 -> Ageledger.AgeDecision
+Ageledger.AgeDecision.AllowedWithParentalConsent = 2 -> Ageledger.AgeDecision
+Ageledger.AgeDecision.Blocked = 3 -> Ageledger.AgeDecision
+Ageledger.AgeDecision.NotApplicable = 0 -> Ageledger.AgeDecision
+Ageledger.AgeRangeBucket
+Ageledger.AgeRangeBucket.AgeRangeBucket() -> void
+Ageledger.AgeRangeBucket.AgeRangeBucket(int? Lower, int? Upper) -> void
+Ageledger.AgeRangeBucket.Deconstruct(out int? Lower, out int? Upper) -> void
+Ageledger.AgeRangeBucket.Equals(Ageledger.AgeRangeBucket other) -> bool
+Ageledger.AgeRangeBucket.IsKnown.get -> bool
+Ageledger.AgeRangeBucket.Label.get -> string!
+Ageledger.AgeRangeBucket.Lower.get -> int?
+Ageledger.AgeRangeBucket.Lower.init -> void
+Ageledger.AgeRangeBucket.Upper.get -> int?
+Ageledger.AgeRangeBucket.Upper.init -> void
+Ageledger.AgeSignalsError
+Ageledger.AgeSignalsError.AppNotOwned = 2 -> Ageledger.AgeSignalsError
+Ageledger.AgeSignalsError.Internal = 8 -> Ageledger.AgeSignalsError
+Ageledger.AgeSignalsError.InvalidAccount = 7 -> Ageledger.AgeSignalsError
+Ageledger.AgeSignalsError.InvalidRequest = 6 -> Ageledger.AgeSignalsError
+Ageledger.AgeSignalsError.Network = 4 -> Ageledger.AgeSignalsError
+Ageledger.AgeSignalsError.NoPresenter = 10 -> Ageledger.AgeSignalsError
+Ageledger.AgeSignalsError.None = 0 -> Ageledger.AgeSignalsError
+Ageledger.AgeSignalsError.NotAvailable = 1 -> Ageledger.AgeSignalsError
+Ageledger.AgeSignalsError.Other = 9 -> Ageledger.AgeSignalsError
+Ageledger.AgeSignalsError.PlatformComponentMissing = 3 -> Ageledger.AgeSignalsError
+Ageledger.AgeSignalsError.Timeout = 11 -> Ageledger.AgeSignalsError
+Ageledger.AgeSignalsError.Transient = 5 -> Ageledger.AgeSignalsError
+Ageledger.AgeSignalsEvaluation
+Ageledger.AgeSignalsEvaluation.<Clone>$() -> Ageledger.AgeSignalsEvaluation!
+Ageledger.AgeSignalsEvaluation.AgeSignalsEvaluation(Ageledger.AgeSignalsOutcome! Result, Ageledger.AgeDecision Decision, bool Logged = false) -> void
+Ageledger.AgeSignalsEvaluation.Decision.get -> Ageledger.AgeDecision
+Ageledger.AgeSignalsEvaluation.Decision.init -> void
+Ageledger.AgeSignalsEvaluation.Deconstruct(out Ageledger.AgeSignalsOutcome! Result, out Ageledger.AgeDecision Decision, out bool Logged) -> void
+Ageledger.AgeSignalsEvaluation.Equals(Ageledger.AgeSignalsEvaluation? other) -> bool
+Ageledger.AgeSignalsEvaluation.Logged.get -> bool
+Ageledger.AgeSignalsEvaluation.Logged.init -> void
+Ageledger.AgeSignalsEvaluation.Result.get -> Ageledger.AgeSignalsOutcome!
+Ageledger.AgeSignalsEvaluation.Result.init -> void
+Ageledger.AgeSignalsOptions
+Ageledger.AgeSignalsOptions.AdultAge.get -> int
+Ageledger.AgeSignalsOptions.AdultAge.set -> void
+Ageledger.AgeSignalsOptions.AgeBucketLogging.get -> Ageledger.AgeBucketLogging
+Ageledger.AgeSignalsOptions.AgeBucketLogging.set -> void
+Ageledger.AgeSignalsOptions.AgeGates.get -> System.Collections.Generic.IReadOnlyList<int>!
+Ageledger.AgeSignalsOptions.AgeGates.set -> void
+Ageledger.AgeSignalsOptions.AgeSignalsOptions() -> void
+Ageledger.AgeSignalsOptions.AppVersion.get -> string!
+Ageledger.AgeSignalsOptions.AppVersion.set -> void
+Ageledger.AgeSignalsOptions.Enabled.get -> bool
+Ageledger.AgeSignalsOptions.Enabled.set -> void
+Ageledger.AgeSignalsOptions.MinimumAge.get -> int
+Ageledger.AgeSignalsOptions.MinimumAge.set -> void
+Ageledger.AgeSignalsOptions.NoSignalDecision.get -> Ageledger.AgeDecision
+Ageledger.AgeSignalsOptions.NoSignalDecision.set -> void
+Ageledger.AgeSignalsOptions.RequestTimeout.get -> System.TimeSpan?
+Ageledger.AgeSignalsOptions.RequestTimeout.set -> void
+Ageledger.AgeSignalsOptions.RuleId.get -> string!
+Ageledger.AgeSignalsOptions.RuleId.set -> void
+Ageledger.AgeSignalsOptions.SharedRangePolicy.get -> System.Func<Ageledger.AgeRangeBucket, Ageledger.AgeDecision>?
+Ageledger.AgeSignalsOptions.SharedRangePolicy.set -> void
+Ageledger.AgeSignalsOptions.VerificationRequiredDecision.get -> Ageledger.AgeDecision
+Ageledger.AgeSignalsOptions.VerificationRequiredDecision.set -> void
+Ageledger.AgeSignalsOutcome
+Ageledger.AgeSignalsOutcome.<Clone>$() -> Ageledger.AgeSignalsOutcome!
+Ageledger.AgeSignalsOutcome.AgeSignalsOutcome() -> void
+Ageledger.AgeSignalsOutcome.Bucket.get -> Ageledger.AgeRangeBucket
+Ageledger.AgeSignalsOutcome.Bucket.init -> void
+Ageledger.AgeSignalsOutcome.Equals(Ageledger.AgeSignalsOutcome? other) -> bool
+Ageledger.AgeSignalsOutcome.Error.get -> Ageledger.AgeSignalsError
+Ageledger.AgeSignalsOutcome.Error.init -> void
+Ageledger.AgeSignalsOutcome.ParentalControls.get -> Ageledger.ParentalControls
+Ageledger.AgeSignalsOutcome.ParentalControls.init -> void
+Ageledger.AgeSignalsOutcome.Platform.get -> Ageledger.AgeSignalsPlatform
+Ageledger.AgeSignalsOutcome.Platform.init -> void
+Ageledger.AgeSignalsOutcome.SignificantChange.get -> Ageledger.SignificantChange
+Ageledger.AgeSignalsOutcome.SignificantChange.init -> void
+Ageledger.AgeSignalsOutcome.State.get -> Ageledger.AgeSignalsState
+Ageledger.AgeSignalsOutcome.State.init -> void
+Ageledger.AgeSignalsPlatform
+Ageledger.AgeSignalsPlatform.Android = 1 -> Ageledger.AgeSignalsPlatform
+Ageledger.AgeSignalsPlatform.None = 0 -> Ageledger.AgeSignalsPlatform
+Ageledger.AgeSignalsPlatform.iOS = 2 -> Ageledger.AgeSignalsPlatform
+Ageledger.AgeSignalsService
+Ageledger.AgeSignalsService.AgeSignalsService(Ageledger.AgeSignalsOptions! options, Ageledger.IAgeSignalsProvider! provider, Ageledger.IDecisionLog? log = null, System.TimeProvider? time = null) -> void
+Ageledger.AgeSignalsService.EvaluateAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Ageledger.AgeSignalsEvaluation!>!
+Ageledger.AgeSignalsService.GetRequiredRegulatoryFeaturesAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Ageledger.RegulatoryFeatures?>!
+Ageledger.AgeSignalsService.IsEligibleForAgeFeaturesAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool?>!
+Ageledger.AgeSignalsService.IsEnabled.get -> bool
+Ageledger.AgeSignalsService.ShowSignificantUpdateAcknowledgmentAsync(string! updateDescription, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Ageledger.SignificantUpdateOutcome>!
+Ageledger.AgeSignalsState
+Ageledger.AgeSignalsState.Declined = 2 -> Ageledger.AgeSignalsState
+Ageledger.AgeSignalsState.Disabled = 0 -> Ageledger.AgeSignalsState
+Ageledger.AgeSignalsState.Error = 6 -> Ageledger.AgeSignalsState
+Ageledger.AgeSignalsState.NotShared = 3 -> Ageledger.AgeSignalsState
+Ageledger.AgeSignalsState.Shared = 1 -> Ageledger.AgeSignalsState
+Ageledger.AgeSignalsState.Unavailable = 5 -> Ageledger.AgeSignalsState
+Ageledger.AgeSignalsState.VerificationRequired = 4 -> Ageledger.AgeSignalsState
+Ageledger.AndroidAccessOutcome
+Ageledger.AndroidAccessOutcome.<Clone>$() -> Ageledger.AndroidAccessOutcome!
+Ageledger.AndroidAccessOutcome.AndroidAccessOutcome(Ageledger.AndroidAccessStatus Status, Ageledger.AndroidErrorKind Error = Ageledger.AndroidErrorKind.None) -> void
+Ageledger.AndroidAccessOutcome.Deconstruct(out Ageledger.AndroidAccessStatus Status, out Ageledger.AndroidErrorKind Error) -> void
+Ageledger.AndroidAccessOutcome.Equals(Ageledger.AndroidAccessOutcome? other) -> bool
+Ageledger.AndroidAccessOutcome.Error.get -> Ageledger.AndroidErrorKind
+Ageledger.AndroidAccessOutcome.Error.init -> void
+Ageledger.AndroidAccessOutcome.Status.get -> Ageledger.AndroidAccessStatus
+Ageledger.AndroidAccessOutcome.Status.init -> void
+Ageledger.AndroidAccessStatus
+Ageledger.AndroidAccessStatus.NotShared = 2 -> Ageledger.AndroidAccessStatus
+Ageledger.AndroidAccessStatus.Shared = 1 -> Ageledger.AndroidAccessStatus
+Ageledger.AndroidAccessStatus.Unspecified = 0 -> Ageledger.AndroidAccessStatus
+Ageledger.AndroidAccessStatus.VerificationRequired = 3 -> Ageledger.AndroidAccessStatus
+Ageledger.AndroidAgeSignalsProvider
+Ageledger.AndroidAgeSignalsProvider.AndroidAgeSignalsProvider(Ageledger.IAndroidAgeSignalsBackend! backend) -> void
+Ageledger.AndroidAgeSignalsProvider.GetRequiredRegulatoryFeaturesAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Ageledger.RegulatoryFeatures?>!
+Ageledger.AndroidAgeSignalsProvider.IsEligibleForAgeFeaturesAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool?>!
+Ageledger.AndroidAgeSignalsProvider.Platform.get -> Ageledger.AgeSignalsPlatform
+Ageledger.AndroidAgeSignalsProvider.RequestAgeSignalsAsync(Ageledger.AgeSignalsOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Ageledger.AgeSignalsOutcome!>!
+Ageledger.AndroidAgeSignalsProvider.ShowSignificantUpdateAcknowledgmentAsync(string! updateDescription, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Ageledger.SignificantUpdateOutcome>!
+Ageledger.AndroidCheckOutcome
+Ageledger.AndroidCheckOutcome.<Clone>$() -> Ageledger.AndroidCheckOutcome!
+Ageledger.AndroidCheckOutcome.AgeLower.get -> int?
+Ageledger.AndroidCheckOutcome.AgeLower.init -> void
+Ageledger.AndroidCheckOutcome.AgeUpper.get -> int?
+Ageledger.AndroidCheckOutcome.AgeUpper.init -> void
+Ageledger.AndroidCheckOutcome.AndroidCheckOutcome(int? AgeLower, int? AgeUpper, Ageledger.AndroidSignificantChange SignificantChange, Ageledger.AndroidErrorKind Error = Ageledger.AndroidErrorKind.None) -> void
+Ageledger.AndroidCheckOutcome.Deconstruct(out int? AgeLower, out int? AgeUpper, out Ageledger.AndroidSignificantChange SignificantChange, out Ageledger.AndroidErrorKind Error) -> void
+Ageledger.AndroidCheckOutcome.Equals(Ageledger.AndroidCheckOutcome? other) -> bool
+Ageledger.AndroidCheckOutcome.Error.get -> Ageledger.AndroidErrorKind
+Ageledger.AndroidCheckOutcome.Error.init -> void
+Ageledger.AndroidCheckOutcome.SignificantChange.get -> Ageledger.AndroidSignificantChange
+Ageledger.AndroidCheckOutcome.SignificantChange.init -> void
+Ageledger.AndroidErrorKind
+Ageledger.AndroidErrorKind.ApiNotAvailable = 1 -> Ageledger.AndroidErrorKind
+Ageledger.AndroidErrorKind.AppNotOwned = 2 -> Ageledger.AndroidErrorKind
+Ageledger.AndroidErrorKind.CannotBindToService = 3 -> Ageledger.AndroidErrorKind
+Ageledger.AndroidErrorKind.ClientTransientError = 4 -> Ageledger.AndroidErrorKind
+Ageledger.AndroidErrorKind.InternalError = 5 -> Ageledger.AndroidErrorKind
+Ageledger.AndroidErrorKind.NetworkError = 6 -> Ageledger.AndroidErrorKind
+Ageledger.AndroidErrorKind.NoActivity = 13 -> Ageledger.AndroidErrorKind
+Ageledger.AndroidErrorKind.None = 0 -> Ageledger.AndroidErrorKind
+Ageledger.AndroidErrorKind.Other = 12 -> Ageledger.AndroidErrorKind
+Ageledger.AndroidErrorKind.PlayServicesNotFound = 7 -> Ageledger.AndroidErrorKind
+Ageledger.AndroidErrorKind.PlayServicesVersionOutdated = 8 -> Ageledger.AndroidErrorKind
+Ageledger.AndroidErrorKind.PlayStoreNotFound = 9 -> Ageledger.AndroidErrorKind
+Ageledger.AndroidErrorKind.PlayStoreVersionOutdated = 10 -> Ageledger.AndroidErrorKind
+Ageledger.AndroidErrorKind.SdkVersionOutdated = 11 -> Ageledger.AndroidErrorKind
+Ageledger.AndroidSignificantChange
+Ageledger.AndroidSignificantChange.Approved = 1 -> Ageledger.AndroidSignificantChange
+Ageledger.AndroidSignificantChange.Declined = 3 -> Ageledger.AndroidSignificantChange
+Ageledger.AndroidSignificantChange.None = 0 -> Ageledger.AndroidSignificantChange
+Ageledger.AndroidSignificantChange.Pending = 2 -> Ageledger.AndroidSignificantChange
+Ageledger.AppleAgeRangeResponse
+Ageledger.AppleAgeRangeResponse.<Clone>$() -> Ageledger.AppleAgeRangeResponse!
+Ageledger.AppleAgeRangeResponse.AppleAgeRangeResponse(Ageledger.AppleResponseKind Kind, int? LowerBound = null, int? UpperBound = null, Ageledger.ParentalControls ParentalControls = Ageledger.ParentalControls.None, Ageledger.AppleErrorKind Error = Ageledger.AppleErrorKind.None) -> void
+Ageledger.AppleAgeRangeResponse.Deconstruct(out Ageledger.AppleResponseKind Kind, out int? LowerBound, out int? UpperBound, out Ageledger.ParentalControls ParentalControls, out Ageledger.AppleErrorKind Error) -> void
+Ageledger.AppleAgeRangeResponse.Equals(Ageledger.AppleAgeRangeResponse? other) -> bool
+Ageledger.AppleAgeRangeResponse.Error.get -> Ageledger.AppleErrorKind
+Ageledger.AppleAgeRangeResponse.Error.init -> void
+Ageledger.AppleAgeRangeResponse.Kind.get -> Ageledger.AppleResponseKind
+Ageledger.AppleAgeRangeResponse.Kind.init -> void
+Ageledger.AppleAgeRangeResponse.LowerBound.get -> int?
+Ageledger.AppleAgeRangeResponse.LowerBound.init -> void
+Ageledger.AppleAgeRangeResponse.ParentalControls.get -> Ageledger.ParentalControls
+Ageledger.AppleAgeRangeResponse.ParentalControls.init -> void
+Ageledger.AppleAgeRangeResponse.UpperBound.get -> int?
+Ageledger.AppleAgeRangeResponse.UpperBound.init -> void
+Ageledger.AppleAgeSignalsProvider
+Ageledger.AppleAgeSignalsProvider.AppleAgeSignalsProvider(Ageledger.IAppleAgeRangeBackend! backend) -> void
+Ageledger.AppleAgeSignalsProvider.GetRequiredRegulatoryFeaturesAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Ageledger.RegulatoryFeatures?>!
+Ageledger.AppleAgeSignalsProvider.IsEligibleForAgeFeaturesAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool?>!
+Ageledger.AppleAgeSignalsProvider.Platform.get -> Ageledger.AgeSignalsPlatform
+Ageledger.AppleAgeSignalsProvider.RequestAgeSignalsAsync(Ageledger.AgeSignalsOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Ageledger.AgeSignalsOutcome!>!
+Ageledger.AppleAgeSignalsProvider.ShowSignificantUpdateAcknowledgmentAsync(string! updateDescription, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Ageledger.SignificantUpdateOutcome>!
+Ageledger.AppleErrorKind
+Ageledger.AppleErrorKind.DeclinedOnboarding = 4 -> Ageledger.AppleErrorKind
+Ageledger.AppleErrorKind.InvalidAccount = 3 -> Ageledger.AppleErrorKind
+Ageledger.AppleErrorKind.InvalidRequest = 2 -> Ageledger.AppleErrorKind
+Ageledger.AppleErrorKind.Network = 5 -> Ageledger.AppleErrorKind
+Ageledger.AppleErrorKind.NoPresenter = 7 -> Ageledger.AppleErrorKind
+Ageledger.AppleErrorKind.None = 0 -> Ageledger.AppleErrorKind
+Ageledger.AppleErrorKind.NotAvailable = 1 -> Ageledger.AppleErrorKind
+Ageledger.AppleErrorKind.Other = 6 -> Ageledger.AppleErrorKind
+Ageledger.AppleResponseKind
+Ageledger.AppleResponseKind.DeclinedSharing = 1 -> Ageledger.AppleResponseKind
+Ageledger.AppleResponseKind.Error = 2 -> Ageledger.AppleResponseKind
+Ageledger.AppleResponseKind.Sharing = 0 -> Ageledger.AppleResponseKind
+Ageledger.DecisionLogEntry
+Ageledger.DecisionLogEntry.<Clone>$() -> Ageledger.DecisionLogEntry!
+Ageledger.DecisionLogEntry.AgeBucket.get -> string!
+Ageledger.DecisionLogEntry.AppVersion.get -> string!
+Ageledger.DecisionLogEntry.Decision.get -> Ageledger.AgeDecision
+Ageledger.DecisionLogEntry.DecisionLogEntry(System.DateTimeOffset timestampUtc, string! ageBucket, Ageledger.AgeDecision decision, string! appVersion, string! ruleId) -> void
+Ageledger.DecisionLogEntry.Equals(Ageledger.DecisionLogEntry? other) -> bool
+Ageledger.DecisionLogEntry.RuleId.get -> string!
+Ageledger.DecisionLogEntry.TimestampUtc.get -> System.DateTimeOffset
+Ageledger.IAgeSignalsProvider
+Ageledger.IAgeSignalsProvider.GetRequiredRegulatoryFeaturesAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Ageledger.RegulatoryFeatures?>!
+Ageledger.IAgeSignalsProvider.IsEligibleForAgeFeaturesAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool?>!
+Ageledger.IAgeSignalsProvider.Platform.get -> Ageledger.AgeSignalsPlatform
+Ageledger.IAgeSignalsProvider.RequestAgeSignalsAsync(Ageledger.AgeSignalsOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Ageledger.AgeSignalsOutcome!>!
+Ageledger.IAgeSignalsProvider.ShowSignificantUpdateAcknowledgmentAsync(string! updateDescription, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Ageledger.SignificantUpdateOutcome>!
+Ageledger.IAndroidAgeSignalsBackend
+Ageledger.IAndroidAgeSignalsBackend.CheckAgeSignalsAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Ageledger.AndroidCheckOutcome!>!
+Ageledger.IAndroidAgeSignalsBackend.RequestAccessAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Ageledger.AndroidAccessOutcome!>!
+Ageledger.IAppleAgeRangeBackend
+Ageledger.IAppleAgeRangeBackend.GetRequiredRegulatoryFeaturesAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Ageledger.RegulatoryFeatures?>!
+Ageledger.IAppleAgeRangeBackend.IsEligibleForAgeFeaturesAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool?>!
+Ageledger.IAppleAgeRangeBackend.RequestAgeRangeAsync(System.Collections.Generic.IReadOnlyList<int>! ageGates, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Ageledger.AppleAgeRangeResponse!>!
+Ageledger.IAppleAgeRangeBackend.ShowSignificantUpdateAcknowledgmentAsync(string! updateDescription, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Ageledger.SignificantUpdateOutcome>!
+Ageledger.IDecisionLog
+Ageledger.IDecisionLog.AppendAsync(Ageledger.DecisionLogEntry! entry, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Ageledger.IDecisionLog.ClearAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Ageledger.IDecisionLog.ExportJsonAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string!>!
+Ageledger.IDecisionLog.ReadAllAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Ageledger.DecisionLogEntry!>!>!
+Ageledger.InMemoryDecisionLog
+Ageledger.InMemoryDecisionLog.AppendAsync(Ageledger.DecisionLogEntry! entry, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Ageledger.InMemoryDecisionLog.ClearAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Ageledger.InMemoryDecisionLog.ExportJsonAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string!>!
+Ageledger.InMemoryDecisionLog.InMemoryDecisionLog() -> void
+Ageledger.InMemoryDecisionLog.ReadAllAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Ageledger.DecisionLogEntry!>!>!
+Ageledger.JsonFileDecisionLog
+Ageledger.JsonFileDecisionLog.AppendAsync(Ageledger.DecisionLogEntry! entry, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Ageledger.JsonFileDecisionLog.ClearAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Ageledger.JsonFileDecisionLog.ExportJsonAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string!>!
+Ageledger.JsonFileDecisionLog.JsonFileDecisionLog(string! path, int maxEntries = 1000, System.TimeSpan? retention = null, System.TimeProvider? time = null) -> void
+Ageledger.JsonFileDecisionLog.ReadAllAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Ageledger.DecisionLogEntry!>!>!
+Ageledger.ParentalControls
+Ageledger.ParentalControls.CommunicationLimits = 1 -> Ageledger.ParentalControls
+Ageledger.ParentalControls.None = 0 -> Ageledger.ParentalControls
+Ageledger.ParentalControls.SignificantAppChangeApprovalRequired = 2 -> Ageledger.ParentalControls
+Ageledger.RegulatoryFeatures
+Ageledger.RegulatoryFeatures.DeclaredAgeRangeRequired = 1 -> Ageledger.RegulatoryFeatures
+Ageledger.RegulatoryFeatures.None = 0 -> Ageledger.RegulatoryFeatures
+Ageledger.RegulatoryFeatures.SignificantAppChangeRequiresAdultNotification = 2 -> Ageledger.RegulatoryFeatures
+Ageledger.RegulatoryFeatures.SignificantAppChangeRequiresParentalConsent = 4 -> Ageledger.RegulatoryFeatures
+Ageledger.SignificantChange
+Ageledger.SignificantChange.Approved = 1 -> Ageledger.SignificantChange
+Ageledger.SignificantChange.Declined = 3 -> Ageledger.SignificantChange
+Ageledger.SignificantChange.None = 0 -> Ageledger.SignificantChange
+Ageledger.SignificantChange.Pending = 2 -> Ageledger.SignificantChange
+Ageledger.SignificantUpdateOutcome
+Ageledger.SignificantUpdateOutcome.Acknowledged = 0 -> Ageledger.SignificantUpdateOutcome
+Ageledger.SignificantUpdateOutcome.Failed = 2 -> Ageledger.SignificantUpdateOutcome
+Ageledger.SignificantUpdateOutcome.Unsupported = 1 -> Ageledger.SignificantUpdateOutcome
+const Ageledger.AgeSignalsOptions.MaxAgeGate = 99 -> int
+const Ageledger.AgeSignalsService.MaxUpdateDescriptionLength = 1000 -> int
+const Ageledger.JsonFileDecisionLog.MaxEntriesLimit = 100000 -> int
+const Ageledger.JsonFileDecisionLog.MaxRetentionDays = 3650 -> int
+~override Ageledger.AgeRangeBucket.Equals(object obj) -> bool
+override Ageledger.AgeRangeBucket.GetHashCode() -> int
+override Ageledger.AgeRangeBucket.ToString() -> string!
+override Ageledger.AgeSignalsEvaluation.Equals(object? obj) -> bool
+override Ageledger.AgeSignalsEvaluation.GetHashCode() -> int
+override Ageledger.AgeSignalsEvaluation.ToString() -> string!
+override Ageledger.AgeSignalsOutcome.Equals(object? obj) -> bool
+override Ageledger.AgeSignalsOutcome.GetHashCode() -> int
+override Ageledger.AgeSignalsOutcome.ToString() -> string!
+override Ageledger.AndroidAccessOutcome.Equals(object? obj) -> bool
+override Ageledger.AndroidAccessOutcome.GetHashCode() -> int
+override Ageledger.AndroidAccessOutcome.ToString() -> string!
+override Ageledger.AndroidCheckOutcome.Equals(object? obj) -> bool
+override Ageledger.AndroidCheckOutcome.GetHashCode() -> int
+override Ageledger.AndroidCheckOutcome.ToString() -> string!
+override Ageledger.AppleAgeRangeResponse.Equals(object? obj) -> bool
+override Ageledger.AppleAgeRangeResponse.GetHashCode() -> int
+override Ageledger.AppleAgeRangeResponse.ToString() -> string!
+override Ageledger.DecisionLogEntry.Equals(object? obj) -> bool
+override Ageledger.DecisionLogEntry.GetHashCode() -> int
+override Ageledger.DecisionLogEntry.ToString() -> string!
+static Ageledger.AgeRangeBucket.Unknown.get -> Ageledger.AgeRangeBucket
+static Ageledger.AgeRangeBucket.operator !=(Ageledger.AgeRangeBucket left, Ageledger.AgeRangeBucket right) -> bool
+static Ageledger.AgeRangeBucket.operator ==(Ageledger.AgeRangeBucket left, Ageledger.AgeRangeBucket right) -> bool
+static Ageledger.AgeSignalsEvaluation.operator !=(Ageledger.AgeSignalsEvaluation? left, Ageledger.AgeSignalsEvaluation? right) -> bool
+static Ageledger.AgeSignalsEvaluation.operator ==(Ageledger.AgeSignalsEvaluation? left, Ageledger.AgeSignalsEvaluation? right) -> bool
+static Ageledger.AgeSignalsOutcome.Disabled.get -> Ageledger.AgeSignalsOutcome!
+static Ageledger.AgeSignalsOutcome.operator !=(Ageledger.AgeSignalsOutcome? left, Ageledger.AgeSignalsOutcome? right) -> bool
+static Ageledger.AgeSignalsOutcome.operator ==(Ageledger.AgeSignalsOutcome? left, Ageledger.AgeSignalsOutcome? right) -> bool
+static Ageledger.AndroidAccessOutcome.operator !=(Ageledger.AndroidAccessOutcome? left, Ageledger.AndroidAccessOutcome? right) -> bool
+static Ageledger.AndroidAccessOutcome.operator ==(Ageledger.AndroidAccessOutcome? left, Ageledger.AndroidAccessOutcome? right) -> bool
+static Ageledger.AndroidCheckOutcome.operator !=(Ageledger.AndroidCheckOutcome? left, Ageledger.AndroidCheckOutcome? right) -> bool
+static Ageledger.AndroidCheckOutcome.operator ==(Ageledger.AndroidCheckOutcome? left, Ageledger.AndroidCheckOutcome? right) -> bool
+static Ageledger.AppleAgeRangeResponse.operator !=(Ageledger.AppleAgeRangeResponse? left, Ageledger.AppleAgeRangeResponse? right) -> bool
+static Ageledger.AppleAgeRangeResponse.operator ==(Ageledger.AppleAgeRangeResponse? left, Ageledger.AppleAgeRangeResponse? right) -> bool
+static Ageledger.DecisionLogEntry.From(Ageledger.AgeSignalsOutcome! result, Ageledger.AgeDecision decision, Ageledger.AgeSignalsOptions! options, System.DateTimeOffset nowUtc) -> Ageledger.DecisionLogEntry!
+static Ageledger.DecisionLogEntry.FromFields(System.Collections.Generic.IReadOnlyDictionary<string!, string!>! fields) -> Ageledger.DecisionLogEntry!
+static Ageledger.DecisionLogEntry.operator !=(Ageledger.DecisionLogEntry? left, Ageledger.DecisionLogEntry? right) -> bool
+static Ageledger.DecisionLogEntry.operator ==(Ageledger.DecisionLogEntry? left, Ageledger.DecisionLogEntry? right) -> bool
+static readonly Ageledger.AgeSignalsOptions.MaxRequestTimeout -> System.TimeSpan
+static readonly Ageledger.DecisionLogEntry.FieldNames -> System.Collections.Generic.IReadOnlyList<string!>!
