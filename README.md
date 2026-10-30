@@ -217,6 +217,27 @@ iOS Simulator (headless, iOS 26.5; these runs predate the sample's scene adoptio
 
 - Apps link and load the Swift wrapper (no app-side native reference), and an enabled service reaches Apple's `requestAgeRange` without crashing.
 
+## Alternatives
+
+Other projects cover the same platform APIs. In brief, from their public pages:
+
+- [Microsoft's MAUI sample "AgeSignals"](https://github.com/dotnet/maui-samples/tree/main/10.0/AgeSignals) (MIT) shows Google Play Age Signals, Apple Declared Age Range (`requestAgeRange`) and Windows' age-consent API in one MAUI app. It is a sample to copy and adapt, not a NuGet package, and it requires iOS 26.
+- `SyntaxCircus.Maui.AgeAssurance` (NuGet, MIT) supports Android and iOS, with a policy-free result model and a dependency-injection helper.
+- `Shiny.AgeSignals` (NuGet) provides age signals for iOS/macOS and Android; see its documentation for details.
+- `DeclaredAgeRange` (NuGet, MIT) is a focused binding of Apple's `requestAgeRange` for iOS and macOS.
+
+How Ageledger differs:
+
+- Android and iOS in one API.
+- All four Apple calls: `requestAgeRange`, `isEligibleForAgeFeatures`, required regulatory features and significant-update acknowledgment.
+- Weak-linked, so it installs on iOS 15 and later.
+- A separate `Ageledger.Testing` package with fakes.
+- An optional five-field local decision log.
+- Off by default.
+- No Windows or macOS support and no ready-made UI.
+
+Pick whichever fits your app. This comparison was checked on 2026-10-30; the other projects may have changed since.
+
 ## Unverified
 
 - Replacing the workload-generated dSYM with the shipped one has not been tried.
