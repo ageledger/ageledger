@@ -16,7 +16,8 @@ namespace Microsoft.Extensions.DependencyInjection;
 /// Android and iOS get the platform provider and backend; every other target (plain net10.0, including Mac Catalyst and Windows heads) gets a provider that reports
 /// <see cref="AgeSignalsState.Unavailable"/> / <see cref="AgeSignalsError.NotAvailable"/> without any platform call.
 /// No decision log is registered unless you call <see cref="AddAgeledgerFileLog"/> or register an <see cref="IDecisionLog"/> yourself: without one the service logs nothing.
-/// The options and the service are singletons. A <see cref="TimeProvider"/> or <see cref="AgeSignalsOptions"/> you register yourself must be registered as a singleton too.
+/// The options and the service are singletons, and the service keeps what it is given: the provider, the backend, the <see cref="IDecisionLog"/>, the options and the <see cref="TimeProvider"/>
+/// must all be singletons, including any you register yourself.
 /// The options are built, and checked by the service, when the service is first resolved: resolve <see cref="AgeSignalsService"/> once at start-up to find a bad setting early.
 /// </remarks>
 public static class AgeledgerServiceCollectionExtensions
@@ -26,7 +27,8 @@ public static class AgeledgerServiceCollectionExtensions
     /// and <see cref="AgeSignalsService"/>. No decision log is registered.
     /// </summary>
     /// <remarks>
-    /// Call this once. A second call (or options you registered earlier) keeps the first registration and does not invoke its <paramref name="configure"/>.
+    /// More than one call is allowed: every <paramref name="configure"/> is kept and they all run, in the order of the calls, on the one options instance; everything else is registered once.
+    /// If you registered your own <see cref="AgeSignalsOptions"/> before the first call, that instance is used and no <paramref name="configure"/> is invoked.
     /// On Android also call <c>AddAgeledgerActivity</c>; the service refuses to be created enabled without it.
     /// </remarks>
     /// <param name="services">The container to add to.</param>
@@ -36,10 +38,18 @@ public static class AgeledgerServiceCollectionExtensions
     public static IServiceCollection AddAgeledger(this IServiceCollection services, Action<AgeSignalsOptions>? configure = null)
     {
         ArgumentNullException.ThrowIfNull(services);
-        services.TryAddSingleton(_ =>
+        // One marker holds every configure from every call, so a later call adds to the options instead of being dropped.
+        var configuration = services.FirstOrDefault(d => d.ServiceType == typeof(AgeledgerConfiguration))?.ImplementationInstance as AgeledgerConfiguration;
+        if (configuration is null)
+        {
+            configuration = new AgeledgerConfiguration();
+            services.AddSingleton(configuration);
+        }
+        if (configure is not null) configuration.Actions.Add(configure);
+        services.TryAddSingleton(sp =>
         {
             var options = new AgeSignalsOptions();
-            configure?.Invoke(options);
+            foreach (var action in sp.GetRequiredService<AgeledgerConfiguration>().Actions) action(options);
             return options;
         });
 #if ANDROID
@@ -55,7 +65,7 @@ public static class AgeledgerServiceCollectionExtensions
         services.TryAddSingleton<IAppleAgeRangeBackend>(_ => new AppleAgeRangeBackend());
         services.TryAddSingleton<IAgeSignalsProvider>(sp => new AppleAgeSignalsProvider(sp.GetRequiredService<IAppleAgeRangeBackend>()));
 #else
-        services.TryAddSingleton<IAgeSignalsProvider>(_ => new UnsupportedAgeSignalsProvider());
+        services.TryAddSingleton<IAgeSignalsProvider>(_ => new NoAgeSignalsProvider());
 #endif
         services.TryAddSingleton(sp => new AgeSignalsService(
             sp.GetRequiredService<AgeSignalsOptions>(),
@@ -87,6 +97,7 @@ public static class AgeledgerServiceCollectionExtensions
     /// Android: registers the function that returns the foreground activity (in a MAUI app usually <c>() =&gt; Microsoft.Maui.ApplicationModel.Platform.CurrentActivity</c>;
     /// the library itself has no MAUI dependency). It is called on the main thread. If the service is enabled and this was not called,
     /// resolving the service throws <see cref="InvalidOperationException"/>. When it is disabled the activity is not needed.
+    /// A second call keeps the first function.
     /// </summary>
     /// <param name="services">The container to add to.</param>
     /// <param name="currentActivity">Returns the foreground activity, or null when there is none.</param>
@@ -103,4 +114,10 @@ public static class AgeledgerServiceCollectionExtensions
     // Wraps the delegate so no bare Func<Activity?> is registered in the app's container.
     internal sealed record AgeledgerActivitySource(Func<Activity?> Get);
 #endif
+
+    // Every configure callback from every AddAgeledger call, in call order. Internal: it only lives in the container so later calls can add to it.
+    internal sealed class AgeledgerConfiguration
+    {
+        public List<Action<AgeSignalsOptions>> Actions { get; } = [];
+    }
 }

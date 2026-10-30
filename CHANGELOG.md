@@ -6,7 +6,7 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ### Added
 
-- Dependency-injection helpers (namespace `Microsoft.Extensions.DependencyInjection`): `AddAgeledger(configure)` registers the options, the platform provider and backend, and `AgeSignalsService` as singletons; `AddAgeledgerFileLog(path)` registers a `JsonFileDecisionLog` on the container's `TimeProvider`; on Android `AddAgeledgerActivity(...)` supplies the foreground activity. All `TryAdd`, off by default, no log unless asked. Builds with no platform (plain net10.0, Mac Catalyst, Windows) get a provider that reports Unavailable / NotAvailable. New dependency: `Microsoft.Extensions.DependencyInjection.Abstractions` 10.0.0 (all three targets).
+- Dependency-injection helpers (namespace `Microsoft.Extensions.DependencyInjection`): `AddAgeledger(configure)` registers the options, the platform provider and backend, and `AgeSignalsService` as singletons; `AddAgeledgerFileLog(path)` registers a `JsonFileDecisionLog` on the container's `TimeProvider`; on Android `AddAgeledgerActivity(...)` supplies the foreground activity. All `TryAdd`, off by default, no log unless asked. Builds with no platform (plain net10.0, Mac Catalyst, Windows) get the new public `NoAgeSignalsProvider`, which reports Unavailable / NotAvailable. Several `AddAgeledger` calls add their `configure` callbacks in call order. New dependency: `Microsoft.Extensions.DependencyInjection.Abstractions` 10.0.0 (all three targets).
 
 ### Changed
 

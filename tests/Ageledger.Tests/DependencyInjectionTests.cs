@@ -7,9 +7,7 @@ namespace Ageledger.Tests;
 
 public class DependencyInjectionTests
 {
-    // The test project references only the abstractions package (no extra dependency), so this is a minimal container for singleton registrations.
-    // It refuses any other lifetime, so a registration that is not a singleton fails the test.
-    // The real container, with the checks MAUI's container can run: every registration must be buildable and no singleton may capture a scoped service.
+    // The real container with build and scope validation. ValidateOnBuild does not run factory lambdas, so the lifetimes are also asserted on the descriptors.
     private static ServiceProvider Build(IServiceCollection services) =>
         services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
 
@@ -114,28 +112,31 @@ public class DependencyInjectionTests
     }
 
     [Fact]
-    public void A_second_call_keeps_the_first_configure_and_adds_no_descriptors()
+    public void Every_configure_from_every_call_runs_in_call_order_with_no_extra_descriptors()
     {
-        var first = 0;
-        var second = 0;
+        var order = new List<string>();
         var services = WithFakeProvider();
-        services.AddAgeledger(_ => first++);
+        services.AddAgeledger(o => { order.Add("first"); o.RuleId = "one"; o.MinimumAge = 12; });
         var count = services.Count;
-        services.AddAgeledger(_ => second++);
+        services.AddAgeledger(o => { order.Add("second"); o.RuleId = "two"; });
+        services.AddAgeledger();
         Assert.Equal(count, services.Count);
+        Assert.Equal(1, services.Count(d => d.ServiceType == typeof(AgeSignalsOptions)));
+        Assert.Equal(1, services.Count(d => d.ServiceType == typeof(AgeSignalsService)));
         var sp = Build(services);
-        sp.GetRequiredService<AgeSignalsService>();
-        Assert.Equal(1, first);
-        Assert.Equal(0, second);
+        var options = sp.GetRequiredService<AgeSignalsOptions>();
+        Assert.Equal(["first", "second"], order);
+        Assert.Equal("two", options.RuleId);
+        Assert.Equal(12, options.MinimumAge);
     }
 
     [Fact]
-    public async Task The_unsupported_provider_reports_unavailable_when_enabled_and_logs_unknown()
+    public async Task The_no_platform_provider_reports_unavailable_when_enabled_and_logs_unknown()
     {
         var services = new ServiceCollection();
         var log = new InMemoryDecisionLog();
         services.AddSingleton<IDecisionLog>(log);
-        services.AddAgeledger(Enable);   // no provider registered: the plain net10.0 build adds the unsupported one
+        services.AddAgeledger(Enable);   // no provider registered: the plain net10.0 build adds NoAgeSignalsProvider
         var sp = Build(services);
         var service = sp.GetRequiredService<AgeSignalsService>();
         var e = await service.EvaluateAsync();
@@ -230,5 +231,18 @@ public class DependencyInjectionTests
         Assert.Throws<ArgumentNullException>(() => ((IServiceCollection)null!).AddAgeledgerFileLog("x"));
         Assert.Throws<ArgumentException>(() => new ServiceCollection().AddAgeledgerFileLog(" "));
         Assert.Throws<ArgumentNullException>(() => new ServiceCollection().AddAgeledgerFileLog(null!));
+    }
+
+    [Fact]
+    public async Task The_no_platform_provider_honours_a_cancelled_token()
+    {
+        var provider = new NoAgeSignalsProvider();
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        Assert.Equal(AgeSignalsPlatform.None, provider.Platform);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => provider.RequestAgeSignalsAsync(new AgeSignalsOptions(), cts.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => provider.IsEligibleForAgeFeaturesAsync(cts.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => provider.GetRequiredRegulatoryFeaturesAsync(cts.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => provider.ShowSignificantUpdateAcknowledgmentAsync("x", cts.Token));
     }
 }
