@@ -11,7 +11,9 @@
 # 2 refused or bad usage; 3 the device stayed busy. Internally, run_suite returns 4 when a suite could not be launched or timed out.
 
 # shellcheck disable=SC2034  # used by the scripts that source this file
-PACKAGE="com.ageledger.sample"
+# shellcheck source=sample-id.sh
+source "$(dirname "${BASH_SOURCE[0]}")/sample-id.sh"
+PACKAGE="$SAMPLE_ID"
 SELFTEST_TOOL="ageledger-selftest"
 LOCK_ROOT="${AGELEDGER_LOCK_DIR:-/tmp/device-locks}"
 LOCK_WAIT="${AGELEDGER_LOCK_WAIT:-600}"

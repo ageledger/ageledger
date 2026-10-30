@@ -183,14 +183,21 @@ public class SelfTestRowsTests
     }
 
     [Fact]
-    public void The_sample_app_id_android_activity_and_host_script_package_are_the_same_string()
+    public void The_sample_app_id_has_one_default_and_nothing_else_spells_it_out()
     {
-        // The sample's bundle id is also its Android package; the Activity name and the host scripts spell it out, so a rename has to hit all three.
-        var id = Regex.Match(RepoFile("samples", "AgeledgerSample", "AgeledgerSample.csproj"), "<ApplicationId>([^<]+)</ApplicationId>").Groups[1].Value;
-        var activity = Regex.Match(RepoFile("samples", "AgeledgerSample", "Platforms", "Android", "MainActivity.cs"), "Name = \"([^\"]+)\\.MainActivity\"").Groups[1].Value;
-        var package = Regex.Match(RepoFile("scripts", "lib", "selftest-common.sh"), "^PACKAGE=\"([^\"]+)\"", RegexOptions.Multiline).Groups[1].Value;
-        Assert.NotEmpty(id);
-        Assert.Equal(id, activity);
-        Assert.Equal(id, package);
+        // The id (iOS bundle id, Android package) is set in one place; the Activity has no fixed name with the package in it and the
+        // scripts and the UI-test project read the same value, so a different id needs no edits to tracked files.
+        const string Default = "com.ageledger.sample";
+        var csproj = RepoFile("samples", "AgeledgerSample", "AgeledgerSample.csproj");
+        Assert.Contains("<ApplicationId>$(AgeledgerSampleId)</ApplicationId>", csproj);
+        Assert.Contains($">{Default}</AgeledgerSampleId>", csproj);
+        Assert.DoesNotContain(".MainActivity\"", RepoFile("samples", "AgeledgerSample", "Platforms", "Android", "MainActivity.cs"));
+        Assert.Contains($"SAMPLE_ID=\"${{SAMPLE_ID:-{Default}}}\"", RepoFile("scripts", "lib", "sample-id.sh"));
+        Assert.Contains("source \"$(dirname \"${BASH_SOURCE[0]}\")/sample-id.sh\"", RepoFile("scripts", "lib", "selftest-common.sh"));
+        Assert.Contains("PACKAGE=\"$SAMPLE_ID\"", RepoFile("scripts", "lib", "selftest-common.sh"));
+        Assert.DoesNotContain("MainActivity", RepoFile("scripts", "selftest-android.sh"));
+        var yml = RepoFile("tests", "ios-device-uitests", "project.yml");
+        Assert.DoesNotContain(Default, yml);
+        Assert.Contains("${AGELEDGER_SAMPLE_ID}.uitests.host", yml);
     }
 }

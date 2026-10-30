@@ -15,8 +15,15 @@
     <LangVersion>latest</LangVersion>
     <IsPackable>false</IsPackable>
 
+    <!-- The app's bundle id (iOS) and package name (Android): one value for the sample, the scripts and the UI tests.
+         Order: -p:AgeledgerSampleId=..., the environment variable AGELEDGER_SAMPLE_ID, the id alone in the untracked
+         scripts/sample-id.local, then the default (docs/try-the-sample.md). -->
+    <AgeledgerSampleIdFile>$(MSBuildThisFileDirectory)../../scripts/sample-id.local</AgeledgerSampleIdFile>
+    <AgeledgerSampleId Condition="'$(AgeledgerSampleId)' == ''">$(AGELEDGER_SAMPLE_ID)</AgeledgerSampleId>
+    <AgeledgerSampleId Condition="'$(AgeledgerSampleId)' == '' And Exists('$(AgeledgerSampleIdFile)')">$([System.IO.File]::ReadAllText('$(AgeledgerSampleIdFile)').Trim())</AgeledgerSampleId>
+    <AgeledgerSampleId Condition="'$(AgeledgerSampleId)' == ''">com.ageledger.sample</AgeledgerSampleId>
     <ApplicationTitle>Ageledger Sample</ApplicationTitle>
-    <ApplicationId>com.ageledger.sample</ApplicationId>
+    <ApplicationId>$(AgeledgerSampleId)</ApplicationId>
     <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
     <ApplicationVersion>1</ApplicationVersion>
 
