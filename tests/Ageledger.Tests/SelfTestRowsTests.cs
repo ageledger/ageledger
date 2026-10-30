@@ -194,14 +194,65 @@ public class SelfTestRowsTests
     }
 
     [Fact]
-    public void The_sample_app_id_android_activity_and_host_script_package_are_the_same_string()
+    public void The_sample_app_id_has_one_default_and_nothing_else_spells_it_out()
     {
-        // The sample's bundle id is also its Android package; the Activity name and the host scripts spell it out, so a rename has to hit all three.
-        var id = Regex.Match(RepoFile("samples", "AgeledgerSample", "AgeledgerSample.csproj"), "<ApplicationId>([^<]+)</ApplicationId>").Groups[1].Value;
-        var activity = Regex.Match(RepoFile("samples", "AgeledgerSample", "Platforms", "Android", "MainActivity.cs"), "Name = \"([^\"]+)\\.MainActivity\"").Groups[1].Value;
-        var package = Regex.Match(RepoFile("scripts", "lib", "selftest-common.sh"), "^PACKAGE=\"([^\"]+)\"", RegexOptions.Multiline).Groups[1].Value;
-        Assert.NotEmpty(id);
-        Assert.Equal(id, activity);
-        Assert.Equal(id, package);
+        // The id (iOS bundle id, Android package) is set in one place; the Activity has no fixed name with the package in it and the
+        // scripts and the UI-test project read the same value, so a different id needs no edits to tracked files.
+        const string Default = "com.ageledger.sample";
+        var csproj = RepoFile("samples", "AgeledgerSample", "AgeledgerSample.csproj");
+        Assert.Contains("<ApplicationId>$(AgeledgerSampleId)</ApplicationId>", csproj);
+        Assert.Contains($">{Default}</AgeledgerSampleId>", csproj);
+        Assert.DoesNotContain(".MainActivity\"", RepoFile("samples", "AgeledgerSample", "Platforms", "Android", "MainActivity.cs"));
+        Assert.Contains($"SAMPLE_ID=\"${{SAMPLE_ID:-{Default}}}\"", RepoFile("scripts", "lib", "sample-id.sh"));
+        Assert.Contains("source \"$(dirname \"${BASH_SOURCE[0]}\")/sample-id.sh\"", RepoFile("scripts", "lib", "selftest-common.sh"));
+        Assert.Contains("PACKAGE=\"$SAMPLE_ID\"", RepoFile("scripts", "lib", "selftest-common.sh"));
+        var android = RepoFile("scripts", "selftest-android.sh");
+        Assert.DoesNotContain("MainActivity", android);
+        Assert.Contains("\"$component\" != \"$PACKAGE\"/*", android);
+        var yml = RepoFile("tests", "ios-device-uitests", "project.yml");
+        Assert.Contains("$(AGELEDGER_SAMPLE_ID).uitests.host", yml);
+        Assert.Contains("$(AGELEDGER_SAMPLE_ID).uitests\n", yml);
+        Assert.Contains("AGELEDGER_SAMPLE_ID=\"$SAMPLE_ID\"", RepoFile("scripts", "ios-uitests.sh"));
+    }
+
+    // Runs scripts/lib/sample-id.sh in bash against a copy of the scripts folder with the given sample-id.local contents (null: no file).
+    private static (int Code, string Out) RunSampleId(string? fileContents, string? env)
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "sample-id-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(dir, "lib"));
+        try
+        {
+            File.Copy(Path.Combine(RepoRoot(), "scripts", "lib", "sample-id.sh"), Path.Combine(dir, "lib", "sample-id.sh"));
+            if (fileContents is not null) File.WriteAllBytes(Path.Combine(dir, "sample-id.local"), Encoding.UTF8.GetBytes(fileContents));
+            var psi = new System.Diagnostics.ProcessStartInfo("bash") { RedirectStandardOutput = true, RedirectStandardError = true };
+            psi.ArgumentList.Add("-c");
+            psi.ArgumentList.Add("source \"$1\" && echo \"$SAMPLE_ID\"");
+            psi.ArgumentList.Add("x");
+            psi.ArgumentList.Add(Path.Combine(dir, "lib", "sample-id.sh"));
+            psi.Environment.Remove("AGELEDGER_SAMPLE_ID");
+            if (env is not null) psi.Environment["AGELEDGER_SAMPLE_ID"] = env;
+            using var p = System.Diagnostics.Process.Start(psi)!;
+            var o = p.StandardOutput.ReadToEnd();
+            p.StandardError.ReadToEnd();
+            p.WaitForExit();
+            return (p.ExitCode, o.Trim());
+        }
+        finally { Directory.Delete(dir, true); }
+    }
+
+    [Fact]
+    public void The_sample_id_script_reads_the_env_var_then_the_first_line_of_the_file_then_the_default()
+    {
+        Assert.Equal((0, "com.example.env"), RunSampleId("com.example.file\n", "com.example.env"));
+        Assert.Equal((0, "com.example.crlf"), RunSampleId("com.example.crlf\r\nsecond line\r\n", null));
+        Assert.Equal((0, "com.example.spaced"), RunSampleId("   com.example.spaced \t\n", null));
+        Assert.Equal((0, "com.ageledger.sample"), RunSampleId(null, null));
+        Assert.Equal(2, RunSampleId("com.example.my-app\n", null).Code);
+        Assert.Equal(2, RunSampleId(null, "com.example.my-app").Code);
+        Assert.Equal(2, RunSampleId("com\n", null).Code);
+        Assert.Equal((0, "com.example.bom"), RunSampleId("\uFEFFcom.example.bom\n", null));
+        Assert.Equal(2, RunSampleId("\ncom.example.second\n", null).Code);
+        Assert.Equal(2, RunSampleId("   \r\n", null).Code);
+        Assert.Equal(2, RunSampleId("", null).Code);
     }
 }
