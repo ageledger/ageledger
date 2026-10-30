@@ -8,6 +8,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 Copyright and package authorship are now 'The Ageledger Authors' / 'Ageledger'. The published 0.1.0-preview.1 package keeps its original metadata (nuget.org packages cannot be edited).
 
+The public API baseline files now record the 0.1.0-preview.1 API as shipped.
+
 ## 0.1.0-preview.1 (2026-10-27)
 
 First preview release. Everything below ships in `Ageledger` and `Ageledger.Testing`; the public API may still change before 1.0.
