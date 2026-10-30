@@ -90,6 +90,43 @@ public class DependencyInjectionTests
     }
 
     [Fact]
+    public void Options_registered_after_AddAgeledger_win_and_configure_is_not_called()
+    {
+        var mine = On();
+        var called = false;
+        var services = WithFakeProvider();
+        services.AddAgeledger(_ => called = true);
+        services.AddSingleton(mine);
+        var sp = Build(services);
+        Assert.Same(mine, sp.GetRequiredService<AgeSignalsOptions>());
+        Assert.True(sp.GetRequiredService<AgeSignalsService>().IsEnabled);
+        Assert.False(called);
+    }
+
+    [Fact]
+    public void A_later_call_with_configure_applies_after_a_call_without()
+    {
+        var services = WithFakeProvider();
+        services.AddAgeledger();
+        services.AddAgeledger(Enable);
+        Assert.True(Build(services).GetRequiredService<AgeSignalsService>().IsEnabled);
+    }
+
+    [Fact]
+    public void A_throwing_configure_fails_every_resolve_and_nothing_is_cached()
+    {
+        var firstRuns = 0;
+        var services = WithFakeProvider();
+        services.AddAgeledger(_ => firstRuns++);
+        services.AddAgeledger(_ => throw new InvalidOperationException("bad setting"));
+        var sp = Build(services);
+        Assert.Throws<InvalidOperationException>(() => sp.GetRequiredService<AgeSignalsService>());
+        Assert.Equal(1, firstRuns);
+        Assert.Throws<InvalidOperationException>(() => sp.GetRequiredService<AgeSignalsService>());
+        Assert.Equal(2, firstRuns);
+    }
+
+    [Fact]
     public async Task A_prior_provider_registration_wins()
     {
         var mine = new FakeAppleAgeRangeBackend { NextResponse = new AppleAgeRangeResponse(AppleResponseKind.Sharing, 13, 15) };
@@ -125,6 +162,8 @@ public class DependencyInjectionTests
         Assert.Equal(1, services.Count(d => d.ServiceType == typeof(AgeSignalsService)));
         var sp = Build(services);
         var options = sp.GetRequiredService<AgeSignalsOptions>();
+        Assert.Equal(["first", "second"], order);
+        _ = sp.GetRequiredService<AgeSignalsService>();
         Assert.Equal(["first", "second"], order);
         Assert.Equal("two", options.RuleId);
         Assert.Equal(12, options.MinimumAge);

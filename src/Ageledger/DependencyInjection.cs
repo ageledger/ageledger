@@ -13,7 +13,7 @@ namespace Microsoft.Extensions.DependencyInjection;
 /// <remarks>
 /// The service stays off until <see cref="AgeSignalsOptions.Enabled"/> is set to true. This only wires objects together; it does not make an app compliant with any law.
 /// What <see cref="AddAgeledger"/> registers, by target:
-/// Android and iOS get the platform provider and backend; every other target (plain net10.0, including Mac Catalyst and Windows heads) gets a provider that reports
+/// Android and iOS get the platform provider and backend; every other target (plain net10.0, including Mac Catalyst and Windows heads) gets <see cref="NoAgeSignalsProvider"/>, which reports
 /// <see cref="AgeSignalsState.Unavailable"/> / <see cref="AgeSignalsError.NotAvailable"/> without any platform call.
 /// No decision log is registered unless you call <see cref="AddAgeledgerFileLog"/> or register an <see cref="IDecisionLog"/> yourself: without one the service logs nothing.
 /// The options and the service are singletons, and the service keeps what it is given: the provider, the backend, the <see cref="IDecisionLog"/>, the options and the <see cref="TimeProvider"/>
@@ -28,7 +28,9 @@ public static class AgeledgerServiceCollectionExtensions
     /// </summary>
     /// <remarks>
     /// More than one call is allowed: every <paramref name="configure"/> is kept and they all run, in the order of the calls, on the one options instance; everything else is registered once.
-    /// If you registered your own <see cref="AgeSignalsOptions"/> before the first call, that instance is used and no <paramref name="configure"/> is invoked.
+    /// If you register your own <see cref="AgeSignalsOptions"/> instance, before or after any call to this method, that instance is the one used and no <paramref name="configure"/> is invoked.
+    /// Register everything before the container is built.
+    /// If a <paramref name="configure"/> throws, resolving the options (and so the service) fails and nothing is cached: a later resolve runs every configure again on a new options instance.
     /// On Android also call <c>AddAgeledgerActivity</c>; the service refuses to be created enabled without it.
     /// </remarks>
     /// <param name="services">The container to add to.</param>
