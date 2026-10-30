@@ -22,25 +22,23 @@ Links to Apple and Google pages were checked on 2026-10-27 (see the list at the 
 
 ## 2. Replace the bundle ID
 
-Our bundle ID, `com.ageledger.sample`, and the UI-test IDs `com.ageledger.sample.uitests.*` are registered to our team. Choose your own, for example `com.example.agesample`, and change **every** place below. This list comes from `git grep -n "com.ageledger.sample"` on the commit this guide was written against; after you change things, run `git grep -n "com.ageledger.sample" -- ':!docs'`, which should print nothing.
+Our bundle ID, `com.ageledger.sample`, and the UI-test IDs `com.ageledger.sample.uitests.*` are registered to our team. Choose your own, for example `com.example.agesample`, and set it in **one** place: create the untracked file `scripts/sample-id.local` (it is in `.gitignore`) containing only the id on one line:
 
-| File | Line | What it is |
-|---|---|---|
-| `samples/AgeledgerSample/AgeledgerSample.csproj` | 19 | `<ApplicationId>`: the iOS bundle ID and the Android package name |
-| `samples/AgeledgerSample/Platforms/Android/MainActivity.cs` | 8 | `[Activity(Name = "com.ageledger.sample.MainActivity" ...)]`: Android only. It must be `<your id>.MainActivity`, because `scripts/selftest-android.sh` starts `<package>/<package>.MainActivity` |
-| `tests/ios-device-uitests/AgeledgerUITests/SampleApp.swift` | 5 | `bundleId`: the app the UI test launches |
-| `tests/ios-device-uitests/project.yml` | 6 | `bundleIdPrefix` |
-| `tests/ios-device-uitests/project.yml` | 20 | host app: `<your id>.uitests.host` |
-| `tests/ios-device-uitests/project.yml` | 30 | test bundle: `<your id>.uitests` |
-| `scripts/ios-uitests.sh` | 10 | a comment (change it so it stays true) |
-| `scripts/ios-uitests.sh` | 59 | `SAMPLE_BUNDLE`: the one app the script uninstalls for `--reinstall-probe` |
-| `scripts/lib/selftest-common.sh` | 14 | `PACKAGE`: used by the Android and iOS self-test scripts |
+```
+echo com.example.agesample > scripts/sample-id.local
+```
 
-Other mentions are in the documentation (`docs/device-test-plan.md` and this guide describe this project's own IDs); you do not need to edit them to build, which is why the check above leaves `docs` out.
+The id uses letters and digits in dot-separated parts, each starting with a letter (no hyphens, which Android packages do not allow); only the first line of the file is read. A wrong id stops the sample build and the scripts with an error.
 
-If you are testing iOS only you could leave `MainActivity.cs` alone, but changing it together with the csproj keeps Android working. If you only want Android, the same id can stay as it is, or be changed in the same places. `com.ageledger.native` (the framework's own identifier inside the package, set in `native/ios/build.sh`) does **not** need changing.
+That one value is used by:
 
-Do not run `sed` blindly over the whole repository; edit the files in the table.
+- the sample's `ApplicationId` (`samples/AgeledgerSample/AgeledgerSample.csproj`): the iOS bundle ID and the Android package name. The Android activity has no fixed name that includes the package, so nothing else in the app needs editing;
+- `scripts/selftest-android.sh` and `scripts/selftest-ios.sh` (the package they start and read from) and `scripts/ios-uitests.sh` (the app it installs, and the only app `--reinstall-probe` uninstalls);
+- the UI-test project: the XcodeGen project (`tests/ios-device-uitests/project.yml`) uses it as the prefix, `<your id>.uitests.host` for the host app and `<your id>.uitests` for the test bundle, and `SampleApp.swift` attaches to the app with it.
+
+Instead of the file you can set the environment variable `AGELEDGER_SAMPLE_ID` (it wins over the file), or pass `-p:AgeledgerSampleId=com.example.agesample` to a single `dotnet build`. That `-p:` value affects only that build; the scripts read just the environment variable or the file, so the file is the one to use. The UI-test project defaults to `com.ageledger.sample` as the build setting `AGELEDGER_SAMPLE_ID`; `scripts/ios-uitests.sh` passes yours, but if you generate and run that project by hand (`xcodegen generate`, Xcode) set the build setting, and in Xcode also add `AGELEDGER_SAMPLE_ID` to the scheme's Test environment variables (`SampleApp.swift` reads the runner environment, not the build setting), or the default is used. If nothing is set, the default `com.ageledger.sample` is used. After changing the id, build again (and regenerate the UI-test project) before installing.
+
+Other mentions of our IDs are in the documentation (`docs/device-test-plan.md` and this guide describe this project's own IDs); nothing needs editing there. `com.ageledger.native` (the framework's own identifier inside the package, set in `native/ios/build.sh`) does **not** need changing.
 
 ## 3. Apple developer account steps (iPhone)
 
@@ -54,7 +52,7 @@ Do these in your own account, in [Certificates, Identifiers & Profiles](https://
 
 ### Local, untracked files
 
-These are ignored by git (`*.user`, `scripts/devices.local` and `tests/ios-device-uitests/signing.local` are in `.gitignore`). Do not commit them.
+These are ignored by git (`*.user`, `scripts/sample-id.local`, `scripts/devices.local` and `tests/ios-device-uitests/signing.local` are in `.gitignore`). Do not commit them.
 
 - `samples/AgeledgerSample/AgeledgerSample.csproj.user`: MSBuild imports it automatically. The .NET iOS SDK reads two properties from it, `CodesignKey` and `CodesignProvision` (the sample's csproj only mentions them in a comment):
 
@@ -68,6 +66,7 @@ These are ignored by git (`*.user`, `scripts/devices.local` and `tests/ios-devic
   ```
 
   Use the profile's **UUID**, not its name: a name can match an older profile and then the device install fails (device-test-plan.md section 6.3). `security find-identity -v -p codesigning` lists your signing identities; the UUID is inside the downloaded `.mobileprovision` (for example `security cms -D -i <file>` and look for `UUID`). The same two values can instead be passed on the command line as `-p:CodesignKey=... -p:CodesignProvision=...`. The `Entitlements.plist` is applied to device builds only.
+- `scripts/sample-id.local`: your bundle ID (section 2).
 - `scripts/devices.local`: copy `scripts/devices.local.example`. One allowed device per line (an Android serial or an iPhone UDID); a device that is not listed is refused. The self-test scripts (`selftest-ios.sh`, `selftest-android.sh`) match the whole line, so the device id must be **alone on its line** for them. `scripts/ios-uitests.sh` also accepts an optional name after the UDID that it scrubs from its output, but with a name on the line `selftest-ios.sh` refuses that device. If you use both, put the id alone.
 - `tests/ios-device-uitests/signing.local`: copy `signing.local.example` and set `TEAM_ID=YOUR_TEAM_ID` and `PROFILE_UUID=` to the **UI-test wildcard profile's** UUID (step 4). The script sources this file as shell code, so keep it to those two assignments.
 
