@@ -1,1 +1,5 @@
 #nullable enable
+Ageledger.GoogleAgeSignalsBackend
+Ageledger.GoogleAgeSignalsBackend.CheckAgeSignalsAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Ageledger.AndroidCheckOutcome!>!
+Ageledger.GoogleAgeSignalsBackend.GoogleAgeSignalsBackend(System.Func<Android.App.Activity?>! activity, Android.Content.Context? context = null, Google.Android.Play.AgeSignals.IAgeSignalsManager? manager = null) -> void
+Ageledger.GoogleAgeSignalsBackend.RequestAccessAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Ageledger.AndroidAccessOutcome!>!

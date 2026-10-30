@@ -1,7 +1,1 @@
 #nullable enable
-Ageledger.AppleAgeRangeBackend
-Ageledger.AppleAgeRangeBackend.AppleAgeRangeBackend(System.Func<UIKit.UIViewController?>? presenter = null) -> void
-Ageledger.AppleAgeRangeBackend.GetRequiredRegulatoryFeaturesAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Ageledger.RegulatoryFeatures?>!
-Ageledger.AppleAgeRangeBackend.IsEligibleForAgeFeaturesAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool?>!
-Ageledger.AppleAgeRangeBackend.RequestAgeRangeAsync(System.Collections.Generic.IReadOnlyList<int>! ageGates, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Ageledger.AppleAgeRangeResponse!>!
-Ageledger.AppleAgeRangeBackend.ShowSignificantUpdateAcknowledgmentAsync(string! updateDescription, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Ageledger.SignificantUpdateOutcome>!
