@@ -9,22 +9,9 @@ public class DependencyInjectionTests
 {
     // The test project references only the abstractions package (no extra dependency), so this is a minimal container for singleton registrations.
     // It refuses any other lifetime, so a registration that is not a singleton fails the test.
-    private sealed class Container(IServiceCollection services) : IServiceProvider
-    {
-        private readonly Dictionary<Type, object> _made = [];
-
-        public object? GetService(Type type)
-        {
-            if (type == typeof(IServiceProvider)) return this;
-            if (_made.TryGetValue(type, out var made)) return made;
-            var d = services.LastOrDefault(x => x.ServiceType == type);
-            if (d is null) return null;
-            Assert.Equal(ServiceLifetime.Singleton, d.Lifetime);
-            var value = d.ImplementationInstance ?? d.ImplementationFactory!(this);
-            _made[type] = value;
-            return value;
-        }
-    }
+    // The real container, with the checks MAUI's container can run: every registration must be buildable and no singleton may capture a scoped service.
+    private static ServiceProvider Build(IServiceCollection services) =>
+        services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
 
     private sealed class FixedTime(DateTimeOffset now) : TimeProvider { public override DateTimeOffset GetUtcNow() => now; }
 
@@ -45,7 +32,7 @@ public class DependencyInjectionTests
         services.AddAgeledgerFileLog(TempFile());
         Assert.NotEmpty(services);
         Assert.All(services, d => Assert.Equal(ServiceLifetime.Singleton, d.Lifetime));
-        var sp = new Container(services);
+        var sp = Build(services);
         Assert.Same(sp.GetRequiredService<AgeSignalsService>(), sp.GetRequiredService<AgeSignalsService>());
         Assert.Same(sp.GetRequiredService<AgeSignalsOptions>(), sp.GetRequiredService<AgeSignalsOptions>());
     }
@@ -56,7 +43,7 @@ public class DependencyInjectionTests
         var fake = new FakeAppleAgeRangeBackend();
         var services = WithFakeProvider(fake);
         services.AddAgeledger();
-        var sp = new Container(services);
+        var sp = Build(services);
         Assert.False(sp.GetRequiredService<AgeSignalsOptions>().Enabled);
         var service = sp.GetRequiredService<AgeSignalsService>();
         Assert.False(service.IsEnabled);
@@ -72,7 +59,7 @@ public class DependencyInjectionTests
     {
         var services = WithFakeProvider();
         services.AddAgeledger(o => { Enable(o); o.AppVersion = "2.0.1"; o.RuleId = "gate-v2"; o.MinimumAge = 14; });
-        var sp = new Container(services);
+        var sp = Build(services);
         var options = sp.GetRequiredService<AgeSignalsOptions>();
         Assert.True(options.Enabled);
         Assert.Equal("2.0.1", options.AppVersion);
@@ -86,7 +73,7 @@ public class DependencyInjectionTests
     {
         var services = WithFakeProvider();
         services.AddAgeledger(o => { o.Enabled = true; o.AppVersion = "1.4.2 (57)"; });
-        var sp = new Container(services);
+        var sp = Build(services);
         Assert.Throws<ArgumentException>(() => { sp.GetRequiredService<AgeSignalsService>(); });
     }
 
@@ -98,7 +85,7 @@ public class DependencyInjectionTests
         var services = WithFakeProvider();
         services.AddSingleton(mine);
         services.AddAgeledger(_ => called = true);
-        var sp = new Container(services);
+        var sp = Build(services);
         Assert.Same(mine, sp.GetRequiredService<AgeSignalsOptions>());
         Assert.True(sp.GetRequiredService<AgeSignalsService>().IsEnabled);
         Assert.False(called);
@@ -110,7 +97,7 @@ public class DependencyInjectionTests
         var mine = new FakeAppleAgeRangeBackend { NextResponse = new AppleAgeRangeResponse(AppleResponseKind.Sharing, 13, 15) };
         var services = WithFakeProvider(mine);
         services.AddAgeledger(Enable);
-        var sp = new Container(services);
+        var sp = Build(services);
         var e = await sp.GetRequiredService<AgeSignalsService>().EvaluateAsync();
         Assert.Equal("13-15", e.Result.Bucket.Label);
         Assert.Equal(1, mine.RequestCalls);
@@ -123,7 +110,7 @@ public class DependencyInjectionTests
         var services = WithFakeProvider();
         services.AddSingleton(mine);
         services.AddAgeledger();
-        Assert.Same(mine, new Container(services).GetRequiredService<AgeSignalsService>());
+        Assert.Same(mine, Build(services).GetRequiredService<AgeSignalsService>());
     }
 
     [Fact]
@@ -136,7 +123,7 @@ public class DependencyInjectionTests
         var count = services.Count;
         services.AddAgeledger(_ => second++);
         Assert.Equal(count, services.Count);
-        var sp = new Container(services);
+        var sp = Build(services);
         sp.GetRequiredService<AgeSignalsService>();
         Assert.Equal(1, first);
         Assert.Equal(0, second);
@@ -149,7 +136,7 @@ public class DependencyInjectionTests
         var log = new InMemoryDecisionLog();
         services.AddSingleton<IDecisionLog>(log);
         services.AddAgeledger(Enable);   // no provider registered: the plain net10.0 build adds the unsupported one
-        var sp = new Container(services);
+        var sp = Build(services);
         var service = sp.GetRequiredService<AgeSignalsService>();
         var e = await service.EvaluateAsync();
         Assert.Equal(AgeSignalsPlatform.None, e.Result.Platform);
@@ -169,7 +156,7 @@ public class DependencyInjectionTests
     {
         var services = WithFakeProvider();
         services.AddAgeledger(Enable);
-        var sp = new Container(services);
+        var sp = Build(services);
         Assert.Null(sp.GetService<IDecisionLog>());
         Assert.False((await sp.GetRequiredService<AgeSignalsService>().EvaluateAsync()).Logged);
 
@@ -177,7 +164,7 @@ public class DependencyInjectionTests
         var services2 = WithFakeProvider();
         services2.AddSingleton<IDecisionLog>(log);
         services2.AddAgeledger(Enable);
-        Assert.True((await new Container(services2).GetRequiredService<AgeSignalsService>().EvaluateAsync()).Logged);
+        Assert.True((await Build(services2).GetRequiredService<AgeSignalsService>().EvaluateAsync()).Logged);
         Assert.Single(await log.ReadAllAsync());
     }
 
@@ -190,7 +177,7 @@ public class DependencyInjectionTests
         services.AddSingleton<TimeProvider>(new FixedTime(now));
         services.AddAgeledger(Enable);
         services.AddAgeledgerFileLog(path);
-        var sp = new Container(services);
+        var sp = Build(services);
         Assert.IsType<JsonFileDecisionLog>(sp.GetRequiredService<IDecisionLog>());
         Assert.True((await sp.GetRequiredService<AgeSignalsService>().EvaluateAsync()).Logged);
         var row = Assert.Single(await sp.GetRequiredService<IDecisionLog>().ReadAllAsync());
@@ -206,7 +193,7 @@ public class DependencyInjectionTests
         services.AddSingleton<TimeProvider>(new FixedTime(DateTimeOffset.UtcNow.AddDays(-730)));
         services.AddAgeledger(Enable);
         services.AddAgeledgerFileLog(path);
-        var sp = new Container(services);
+        var sp = Build(services);
         Assert.True((await sp.GetRequiredService<AgeSignalsService>().EvaluateAsync()).Logged);
         // Retention is measured on the shared clock, so a row stamped by it is kept.
         Assert.Single(await sp.GetRequiredService<IDecisionLog>().ReadAllAsync());
@@ -220,7 +207,7 @@ public class DependencyInjectionTests
         var services = WithFakeProvider();
         services.AddSingleton<IDecisionLog>(mine);
         services.AddAgeledgerFileLog(TempFile());
-        Assert.Same(mine, new Container(services).GetRequiredService<IDecisionLog>());
+        Assert.Same(mine, Build(services).GetRequiredService<IDecisionLog>());
     }
 
     [Fact]
@@ -232,7 +219,7 @@ public class DependencyInjectionTests
         services.AddSingleton<TimeProvider>(new FixedTime(now));
         services.AddSingleton<IDecisionLog>(log);
         services.AddAgeledger(Enable);
-        await new Container(services).GetRequiredService<AgeSignalsService>().EvaluateAsync();
+        await Build(services).GetRequiredService<AgeSignalsService>().EvaluateAsync();
         Assert.Equal(now, Assert.Single(await log.ReadAllAsync()).TimestampUtc);
     }
 
