@@ -176,6 +176,7 @@ run_xcb() {
     -derivedDataPath "$dd_path" \
     -collect-test-diagnostics never \
     -resultBundlePath "$out/$name.xcresult" \
+    AGELEDGER_SAMPLE_ID="$SAMPLE_ID" \
     CODE_SIGN_STYLE=Manual \
     CODE_SIGN_IDENTITY="Apple Development" \
     DEVELOPMENT_TEAM="$TEAM_ID" \

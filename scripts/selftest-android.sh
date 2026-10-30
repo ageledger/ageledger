@@ -45,13 +45,24 @@ fetch_results() {
 
 # run_suite <suite>: stop the sample, delete old results, launch with a fresh nonce, wait, check, print. Returns the report's exit code.
 run_suite() {
-  local suite=$1 nonce out started
+  local suite=$1 nonce out started launcher component
   nonce=$(st_new_nonce)
   out="$WORK_DIR/$suite.json"
   adb_s shell am force-stop "$PACKAGE" >/dev/null 2>&1
   adb_s shell run-as "$PACKAGE" rm -f "$RESULTS_PATH" "$RESULTS_PATH.tmp" >/dev/null 2>&1
-  started=$(adb_s shell am start -W -p "$PACKAGE" -a android.intent.action.MAIN -c android.intent.category.LAUNCHER --es ageledger_selftest "$suite" --es ageledger_nonce "$nonce" 2>&1 | tr -d '\r')
-  if grep -qiE 'error|exception' <<<"$started"; then
+  launcher=$(adb_s shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p "$PACKAGE" 2>&1 | tr -d '\r' | grep -v '^$')
+  component=$(tail -n 1 <<<"$launcher")
+  if [[ "$component" != */* || "$component" == *[[:space:]]* ]]; then
+    echo "launch failed for suite $suite: could not find the app's launcher activity" >&2
+    return 4
+  fi
+  # --brief prints a priority line first and then the component: more than one component line means more than one launcher resolved.
+  if [[ $(grep -c '/' <<<"$launcher") -ne 1 ]]; then
+    echo "launch failed for suite $suite: more than one launcher activity resolved for the app" >&2
+    return 4
+  fi
+  started=$(adb_s shell am start -W -n "$component" --es ageledger_selftest "$suite" --es ageledger_nonce "$nonce" 2>&1 | tr -d '\r')
+  if grep -qiE 'error|exception|warning: activity not started' <<<"$started"; then
     echo "launch failed for suite $suite" >&2
     printf '%s\n' "$started" >"$WORK_DIR/launch.log"
     st_show_launch_output "$WORK_DIR/launch.log" "$SERIAL"

@@ -407,6 +407,8 @@ Host scripts drive a run and print a table of row, state, bucket, decision, logg
 
 Run on 2026-10-25 with this version of the self-test (including the per-case count check), default suites without `--real-play`: on an Android phone running Android 13, the main suite passed 57 of 57 cases (complete, no case-count mismatch), the write step of the restart check 1 of 1 and the read step 1 of 1, the script exited 0, about 93 seconds in all; on an iPhone running iOS 27.0.1 the main suite passed 20 of 20 (including L13, complete, no mismatch), the restart check 1 of 1 and 1 of 1, exit 0, about 73 seconds. Passing the launch arguments to `devicectl`, the iOS results path (`Library/selftest-results.json`) and the Android `am start` component worked as written. These runs used the fake manager and fake backend only; the `real-play` suite was not run and no Apple sheet can appear in them. They say nothing about Apple's sheet or Google's live service.
 
+Android launch change (2026-10-30): the self-test launch no longer starts a fixed `<package>/<package>.MainActivity`. `scripts/selftest-android.sh` now asks the device for the app's launcher activity (`cmd package resolve-activity --brief`) and starts that component with `am start -W -n`, with the same extras. The 2026-10-25 Android result above was observed with the earlier launch; the new launch will be re-run on the Pixel and recorded here once observed.
+
 ### 7.7 Running the iPhone UI test
 
 `tests/ios-device-uitests` holds a small UI-test project (XcodeGen `project.yml`; the Xcode project is generated and not tracked). `scripts/ios-uitests.sh --udid <udid> --test ExplorationTests/testExploration --app <path to the Debug sample .app>` runs it on a physical iPhone. Before the first run:

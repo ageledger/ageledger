@@ -197,7 +197,45 @@ public class SelfTestRowsTests
         Assert.Contains("PACKAGE=\"$SAMPLE_ID\"", RepoFile("scripts", "lib", "selftest-common.sh"));
         Assert.DoesNotContain("MainActivity", RepoFile("scripts", "selftest-android.sh"));
         var yml = RepoFile("tests", "ios-device-uitests", "project.yml");
-        Assert.DoesNotContain(Default, yml);
-        Assert.Contains("${AGELEDGER_SAMPLE_ID}.uitests.host", yml);
+        Assert.Contains("$(AGELEDGER_SAMPLE_ID).uitests.host", yml);
+        Assert.Contains("$(AGELEDGER_SAMPLE_ID).uitests\n", yml);
+        Assert.Contains("AGELEDGER_SAMPLE_ID=\"$SAMPLE_ID\"", RepoFile("scripts", "ios-uitests.sh"));
+    }
+
+    // Runs scripts/lib/sample-id.sh in bash against a copy of the scripts folder with the given sample-id.local contents (null: no file).
+    private static (int Code, string Out) RunSampleId(string? fileContents, string? env)
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "sample-id-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(dir, "lib"));
+        try
+        {
+            File.Copy(Path.Combine(RepoRoot(), "scripts", "lib", "sample-id.sh"), Path.Combine(dir, "lib", "sample-id.sh"));
+            if (fileContents is not null) File.WriteAllBytes(Path.Combine(dir, "sample-id.local"), Encoding.UTF8.GetBytes(fileContents));
+            var psi = new System.Diagnostics.ProcessStartInfo("bash") { RedirectStandardOutput = true, RedirectStandardError = true };
+            psi.ArgumentList.Add("-c");
+            psi.ArgumentList.Add("source \"$1\" && echo \"$SAMPLE_ID\"");
+            psi.ArgumentList.Add("x");
+            psi.ArgumentList.Add(Path.Combine(dir, "lib", "sample-id.sh"));
+            psi.Environment.Remove("AGELEDGER_SAMPLE_ID");
+            if (env is not null) psi.Environment["AGELEDGER_SAMPLE_ID"] = env;
+            using var p = System.Diagnostics.Process.Start(psi)!;
+            var o = p.StandardOutput.ReadToEnd();
+            p.StandardError.ReadToEnd();
+            p.WaitForExit();
+            return (p.ExitCode, o.Trim());
+        }
+        finally { Directory.Delete(dir, true); }
+    }
+
+    [Fact]
+    public void The_sample_id_script_reads_the_env_var_then_the_first_line_of_the_file_then_the_default()
+    {
+        Assert.Equal((0, "com.example.env"), RunSampleId("com.example.file\n", "com.example.env"));
+        Assert.Equal((0, "com.example.crlf"), RunSampleId("com.example.crlf\r\nsecond line\r\n", null));
+        Assert.Equal((0, "com.example.spaced"), RunSampleId("   com.example.spaced \t\n", null));
+        Assert.Equal((0, "com.ageledger.sample"), RunSampleId(null, null));
+        Assert.Equal(2, RunSampleId("com.example.my-app\n", null).Code);
+        Assert.Equal(2, RunSampleId(null, "com.example.my-app").Code);
+        Assert.Equal(2, RunSampleId("com\n", null).Code);
     }
 }

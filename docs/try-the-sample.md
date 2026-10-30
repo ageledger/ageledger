@@ -28,13 +28,15 @@ Our bundle ID, `com.ageledger.sample`, and the UI-test IDs `com.ageledger.sample
 echo com.example.agesample > scripts/sample-id.local
 ```
 
+The id uses letters and digits in dot-separated parts, each starting with a letter (no hyphens, which Android packages do not allow); only the first line of the file is read. A wrong id stops the sample build and the scripts with an error.
+
 That one value is used by:
 
 - the sample's `ApplicationId` (`samples/AgeledgerSample/AgeledgerSample.csproj`): the iOS bundle ID and the Android package name. The Android activity has no fixed name that includes the package, so nothing else in the app needs editing;
 - `scripts/selftest-android.sh` and `scripts/selftest-ios.sh` (the package they start and read from) and `scripts/ios-uitests.sh` (the app it installs, and the only app `--reinstall-probe` uninstalls);
 - the UI-test project: the XcodeGen project (`tests/ios-device-uitests/project.yml`) uses it as the prefix, `<your id>.uitests.host` for the host app and `<your id>.uitests` for the test bundle, and `SampleApp.swift` attaches to the app with it.
 
-Instead of the file you can set the environment variable `AGELEDGER_SAMPLE_ID` (it wins over the file), or pass `-p:AgeledgerSampleId=com.example.agesample` to a single `dotnet build`. If you run `xcodegen generate` yourself instead of through `scripts/ios-uitests.sh`, export `AGELEDGER_SAMPLE_ID` first. If nothing is set, the default `com.ageledger.sample` is used. After changing the id, build again (and regenerate the UI-test project) before installing.
+Instead of the file you can set the environment variable `AGELEDGER_SAMPLE_ID` (it wins over the file), or pass `-p:AgeledgerSampleId=com.example.agesample` to a single `dotnet build`. That `-p:` value affects only that build; the scripts read just the environment variable or the file, so the file is the one to use. The UI-test project defaults to `com.ageledger.sample` as the build setting `AGELEDGER_SAMPLE_ID`; `scripts/ios-uitests.sh` passes yours, but if you generate and run that project by hand (`xcodegen generate`, Xcode) set the build setting or the default is used. If nothing is set, the default `com.ageledger.sample` is used. After changing the id, build again (and regenerate the UI-test project) before installing.
 
 Other mentions of our IDs are in the documentation (`docs/device-test-plan.md` and this guide describe this project's own IDs); nothing needs editing there. `com.ageledger.native` (the framework's own identifier inside the package, set in `native/ios/build.sh`) does **not** need changing.
 

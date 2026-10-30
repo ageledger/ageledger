@@ -2,6 +2,7 @@ import XCTest
 
 /// The sample app, attached by bundle id. Controls are found by the AutomationIds set in samples/AgeledgerSample/MainPage.cs.
 struct SampleApp {
+    /// Run from the Xcode GUI without the variable, this falls back to the project's default id.
     /// The runner gets AGELEDGER_SAMPLE_ID from scripts/ios-uitests.sh (xcodebuild passes TEST_RUNNER_* variables on without the prefix).
     static let bundleId = ProcessInfo.processInfo.environment["AGELEDGER_SAMPLE_ID"] ?? "com.ageledger.sample"
     let app = XCUIApplication(bundleIdentifier: SampleApp.bundleId)
