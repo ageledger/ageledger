@@ -19,7 +19,7 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 - `docs/try-the-sample.md`: a guide for running the sample app on your own devices (own app id, Apple sandbox account, Android).
 - The sample's app id is one setting (`scripts/sample-id.local`, environment variable `AGELEDGER_SAMPLE_ID` or `-p:AgeledgerSampleId`; default `com.ageledger.sample`). The Android self-test script resolves the launcher activity instead of using a fixed name. Nothing in the library changed.
 - README: an "Alternatives" section lists other libraries and samples for the same platform APIs.
-- README: NuGet badges and install instructions; the Unverified list updated after the first release.
+- README: NuGet badges; the Unverified list now records the first hosted CI run and release.
 
 ### Not verified
 
