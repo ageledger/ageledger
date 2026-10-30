@@ -85,7 +85,7 @@ internal static class SelfTestRows
         new("L2", "both", Range, All, "Clear, then Export gives [] and the file is gone", new Expect("")),
         new("L2b", "both", Range, All, "Clear removes leftover .tmp files and leaves unrelated files", new Expect("")),
         new("L3", "both", Range, ["l3-write", "l3-read"], "entries written before a kill are there after the relaunch (host script drives the kill)", new Expect("write", Suite: "l3-write"), new Expect("read", Suite: "l3-read")),
-        new("L4", "both", Range, All, "1001 appended entries leave 1000", new Expect("")),
+        new("L4", "both", Range, All, "1000 seeded entries plus one append leave 1000, the oldest dropped", new Expect("")),
         new("L5", "both", Range, All, "Enabled=false: Disabled, NotApplicable, no platform call, no log entry",
             new Expect("", AgeSignalsState.Disabled, null, AgeDecision.NotApplicable, false, AgeSignalsError.None)),
         new("L6", "both", Range, All, "two services evaluating at once leave two valid entries", new Expect("")),

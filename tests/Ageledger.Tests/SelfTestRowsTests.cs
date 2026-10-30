@@ -134,6 +134,17 @@ public class SelfTestRowsTests
     }
 
     [Fact]
+    public void Row_L4_seeds_the_cap_and_does_one_real_append()
+    {
+        var logRows = RepoFile("samples", "AgeledgerSample", "SelfTestLogRows.cs");
+        var l4 = logRows[logRows.IndexOf("RunCase(\"L4\"", StringComparison.Ordinal)..logRows.IndexOf("RunCase(\"L5\"", StringComparison.Ordinal)];
+        Assert.Contains("Range(0, 1000)", l4);
+        Assert.Single(Regex.Matches(l4, "AppendAsync"));
+        Assert.DoesNotContain("1001", l4);
+        Assert.Contains("1000 seeded entries plus one append leave 1000, the oldest dropped", RepoFile("samples", "AgeledgerSample", "SelfTestRows.cs"));
+    }
+
+    [Fact]
     public void The_real_play_rows_are_opt_in_and_recorded_not_asserted()
     {
         var rows = RepoFile("samples", "AgeledgerSample", "SelfTestRows.cs");

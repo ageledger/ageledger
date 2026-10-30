@@ -61,7 +61,7 @@ One page, one project, no network access, no analytics, no third-party packages 
   category, so without this button A10-A14 check only the category. Nothing from it is written to the log file.
 - Other debug controls the matrix uses: point the log at an
   unwritable path (L7; use an existing file as a directory component); create leftover `*.tmp` files (L2b); a button
-  appending 1001 made-up valid entries directly to `JsonFileDecisionLog` (L4); a backend built as
+  seeding 1000 made-up valid entries and then appending one directly to `JsonFileDecisionLog` (L4); a backend built as
   `GoogleAgeSignalsBackend(() => null, manager: fake)` (A16); an Android "Evaluate at launch"; a `MinimumAge` field
   (A4c, I7b); a custom `SharedRangePolicy` toggle (A15).
 - Log file: `FileSystem.AppDataDirectory/age-decisions.jsonl` via `JsonFileDecisionLog`. A debug-only button lists the
@@ -320,7 +320,7 @@ Gates 13/16/18 and the default policy unless stated.
 | L2 | Clear, then Export | `[]`; file deleted |
 | L2b | Before Clear, create leftover temp files in the app's data directory (name `age-decisions.jsonl.<hex>.tmp`, by a debug button), then Clear | the temp files are gone (checked with the debug file listing); unrelated files in the directory are untouched |
 | L3 | Kill and relaunch the app, Export | entries persist |
-| L4 | the debug button appending 1001 made-up valid entries directly to `JsonFileDecisionLog` (works on both platforms; or, Android only, 1001 Fake evaluations) | 1000 entries kept |
+| L4 | the debug button writing 1000 made-up valid lines in the writer's format to the log file and then appending one entry directly with `JsonFileDecisionLog` (works on both platforms; seeded so the row needs one flush to disk, not 1001) | 1000 entries kept, the oldest seeded one dropped, the newest is the appended one |
 | L5 | `Enabled=false`, tap Evaluate | Disabled / NotApplicable; no sheet; no log entry; no platform call; `Logged=false` (section 8, item 5) |
 | L6 | Two Evaluate taps in quick succession | no crash or corrupt line; on iOS see section 8 item 1(d) |
 | L7 | `Logged` flag: with the log enabled, any Evaluate; then make the log unwritable (debug option pointing the log at a read-only path) | first `Logged=true` with one new entry; then result and decision still shown, `Logged=false`, no crash, no exception text on screen; restore afterwards |

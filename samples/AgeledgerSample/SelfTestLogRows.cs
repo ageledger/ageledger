@@ -80,12 +80,22 @@ internal sealed partial class SelfTestRun
 
         await RunCase("L4", "", async () =>
         {
-            var log = NewLog("L4");
-            var now = DateTimeOffset.UtcNow;
-            for (var i = 0; i < 1001; i++) await log.AppendAsync(new DecisionLogEntry(now, "13-15", AgeDecision.AllowedWithParentalConsent, AppInfo.VersionString, "TEST"));
-            var kept = (await log.ReadAllAsync()).Count;
-            return Obs.Check(kept == 1000, $"kept={kept}");
-        }, TimeSpan.FromSeconds(150));
+            // Every append flushes the whole file to disk, which takes about 150 ms on an older phone, so a thousand real appends can exceed the case timeout.
+            // The cap is what this row checks: seed 1000 lines in the writer's format (UTF-8 without a byte-order mark, "\n" line ends), then do one real append.
+            var path = LogFile("L4");
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            var start = new DateTimeOffset(DateTimeOffset.UtcNow.UtcDateTime.Ticks / TimeSpan.TicksPerSecond * TimeSpan.TicksPerSecond, TimeSpan.Zero);
+            string Seed(int secondsAgo) =>
+                $"{{\"timestampUtc\":\"{start.AddSeconds(-secondsAgo):yyyy-MM-dd'T'HH:mm:ss'Z'}\",\"ageBucket\":\"13-15\",\"decision\":\"AllowedWithParentalConsent\",\"appVersion\":\"{AppInfo.VersionString}\",\"ruleId\":\"SEED\"}}\n";
+            File.WriteAllText(path, string.Concat(Enumerable.Range(0, 1000).Select(i => Seed(1000 - i))), new System.Text.UTF8Encoding(false));
+            var oldest = start.AddSeconds(-1000);
+            var log = new JsonFileDecisionLog(path);
+            await log.AppendAsync(new DecisionLogEntry(start, "13-15", AgeDecision.AllowedWithParentalConsent, AppInfo.VersionString, "APPENDED"));
+            var all = await log.ReadAllAsync();
+            var ok = all.Count == 1000 && all.All(e => e.TimestampUtc != oldest) && all[^1].RuleId == "APPENDED" && all.Count(e => e.RuleId == "APPENDED") == 1
+                && Lines(path).Count == 1000;
+            return Obs.Check(ok, $"kept={all.Count}");
+        }, TimeSpan.FromSeconds(60));
 
         await RunCase("L5", "", async () =>
         {
