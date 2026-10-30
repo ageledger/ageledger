@@ -195,7 +195,9 @@ public class SelfTestRowsTests
         Assert.Contains($"SAMPLE_ID=\"${{SAMPLE_ID:-{Default}}}\"", RepoFile("scripts", "lib", "sample-id.sh"));
         Assert.Contains("source \"$(dirname \"${BASH_SOURCE[0]}\")/sample-id.sh\"", RepoFile("scripts", "lib", "selftest-common.sh"));
         Assert.Contains("PACKAGE=\"$SAMPLE_ID\"", RepoFile("scripts", "lib", "selftest-common.sh"));
-        Assert.DoesNotContain("MainActivity", RepoFile("scripts", "selftest-android.sh"));
+        var android = RepoFile("scripts", "selftest-android.sh");
+        Assert.DoesNotContain("MainActivity", android);
+        Assert.Contains("\"$component\" != \"$PACKAGE\"/*", android);
         var yml = RepoFile("tests", "ios-device-uitests", "project.yml");
         Assert.Contains("$(AGELEDGER_SAMPLE_ID).uitests.host", yml);
         Assert.Contains("$(AGELEDGER_SAMPLE_ID).uitests\n", yml);
@@ -237,5 +239,9 @@ public class SelfTestRowsTests
         Assert.Equal(2, RunSampleId("com.example.my-app\n", null).Code);
         Assert.Equal(2, RunSampleId(null, "com.example.my-app").Code);
         Assert.Equal(2, RunSampleId("com\n", null).Code);
+        Assert.Equal((0, "com.example.bom"), RunSampleId("\uFEFFcom.example.bom\n", null));
+        Assert.Equal(2, RunSampleId("\ncom.example.second\n", null).Code);
+        Assert.Equal(2, RunSampleId("   \r\n", null).Code);
+        Assert.Equal(2, RunSampleId("", null).Code);
     }
 }
