@@ -411,7 +411,7 @@ Run on 2026-10-25 with this version of the self-test (including the per-case cou
 
 Row D1 (the app's own container) was added after these runs: the default suite now has 58 cases on Android and 21 on iOS (58 of 58 and 21 of 21 when it passes), and the first runs with D1 are recorded under "Runs on 2026-10-30" in `docs/device-test-results.md`. The 57 of 57 and 20 of 20 above are the counts before D1.
 
-Android launch change (2026-10-30): the self-test launch no longer starts a fixed `<package>/<package>.MainActivity`. `scripts/selftest-android.sh` now asks the device for the app's launcher activity (`cmd package resolve-activity --brief`) and starts that component with `am start -W -n`, with the same extras. The 2026-10-25 Android result above was observed with the earlier launch; the new launch will be re-run on the Pixel and recorded here once observed.
+Android launch change (2026-10-30): the self-test launch no longer starts a fixed `<package>/<package>.MainActivity`. `scripts/selftest-android.sh` now asks the device for the app's launcher activity (`cmd package resolve-activity --brief`) and starts that component with `am start -W -n`, with the same extras. The 2026-10-25 Android result above was observed with the earlier launch; the new launch has since been run on the Pixel and is recorded in `docs/device-test-results.md` under "Runs on 2026-10-30".
 
 ### 7.7 Running the iPhone UI test
 
