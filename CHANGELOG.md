@@ -4,6 +4,10 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## Unreleased
 
+### Fixed
+
+- The bundled iOS framework (`AgeledgerNative`) now carries a valid ad-hoc signature. Before, the device slice was unsigned and the Simulator slice had a stale signature ("code has no resources but signature indicates they must be present"). A Simulator app build with code signing turned off (`-p:EnableCodeSigning=false`) kept that signature and was killed at launch ("Code Signature Invalid"). Device builds were not affected, because the app build re-signs the framework. The package check now verifies the signature of every framework in the native-framework archive. The fix has not yet been launched on a Simulator.
+
 ### Changed
 
 - The sample app now registers the service through `AddAgeledger`, `AddAgeledgerFileLog` and (Android) `AddAgeledgerActivity` instead of constructing it by hand; the page builds a fresh container whenever its settings change. In Debug builds the Fake backends used by the sample's Fake rows and by the self-test are still built by hand. Nothing in the library changed.

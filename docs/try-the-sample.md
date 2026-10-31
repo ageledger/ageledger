@@ -91,7 +91,7 @@ xcrun devicectl device install app --device <IPHONE_UDID> <path to AgeledgerSamp
 xcrun devicectl device process launch --device <IPHONE_UDID> com.example.agesample
 ```
 
-The first iOS build also builds the Swift wrapper (`native/ios/build.sh`, needs Xcode). The `.app` is under the sample's `bin/` folder for that configuration and runtime identifier; for the device build it is `samples/AgeledgerSample/bin/Debug/net10.0-ios/ios-arm64/AgeledgerSample.app`. To check that the entitlement made it into the signed app: `codesign -d --entitlements :- <the .app>` should show `com.apple.developer.declared-age-range`. (The README's "Unverified" list notes that this project has not checked the signing of the embedded framework beyond what its device runs showed.)
+The first iOS build also builds the Swift wrapper (`native/ios/build.sh`, needs Xcode). The `.app` is under the sample's `bin/` folder for that configuration and runtime identifier; for the device build it is `samples/AgeledgerSample/bin/Debug/net10.0-ios/ios-arm64/AgeledgerSample.app`. To check that the entitlement made it into the signed app: `codesign -d --entitlements :- <the .app>` should show `com.apple.developer.declared-age-range`. (The README's "Unverified" list notes that this project has not checked the signing of the embedded framework beyond what its device runs showed. The framework inside the package carries an ad-hoc signature, verified with `codesign` but not yet launched on a Simulator with `-p:EnableCodeSigning=false`; earlier packages without it were killed at launch in that setup.)
 
 In the sample:
 

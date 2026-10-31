@@ -114,6 +114,20 @@ unzip -q "$spkg" -d "$RUNNER_TEMP/inspect/snupkg"
 for z in "$RUNNER_TEMP"/inspect/nupkg/lib/*/*.resources.zip; do
   unzip -q "$z" -d "$RUNNER_TEMP/inspect/resources/$(basename "$z")"
 done
+# Every framework bundle in the native-framework archive must carry a valid signature. A stale or missing one is killed at launch
+# by a Simulator app built with code signing turned off. Like the dSYM check below, this must not pass by checking nothing.
+signed=0
+while IFS= read -r -d '' fw; do
+  signed=$((signed + 1))
+  if ! out=$(codesign -vv "$fw" 2>&1); then
+    echo "::error::The signature of a bundled framework is not valid (${fw#"$RUNNER_TEMP"/inspect/resources/}): $out"
+    fail=1
+  fi
+done < <(find "$RUNNER_TEMP/inspect/resources" -type d -name '*.framework' -print0)
+if [ "$signed" -lt 2 ]; then
+  echo "::error::Expected at least 2 frameworks (device + simulator) in the native-framework archive, found $signed."
+  fail=1
+fi
 for mode in -rIl -rl; do
   leaks=$(grep -E $mode '/(Users|home)/' "$RUNNER_TEMP/inspect" || true)
   if [ -n "$leaks" ]; then
@@ -188,23 +202,6 @@ for d in "$RUNNER_TEMP"/inspect/resources/*/AgeledgerNative.xcframework/*/dSYMs/
     fail=1
   fi
 done
-# The simulator slice's signature must not be broken by the strip step. It is copied out of the .framework folder first: inside it,
-# codesign also looks for sealed resources and reports "code has no resources", which a bare copy does not. Exactly one such slice is expected.
-# The device slice is re-signed when an app embeds it, so it is not checked.
-simcount=0
-for b in "$RUNNER_TEMP"/inspect/resources/*/AgeledgerNative.xcframework/*-simulator/AgeledgerNative.framework/AgeledgerNative; do
-  [ -f "$b" ] || continue
-  simcount=$((simcount + 1))
-  cp "$b" "$RUNNER_TEMP/sim-bin"
-  if ! out=$(codesign --verify "$RUNNER_TEMP/sim-bin" 2>&1); then
-    echo "::error::The simulator binary's signature does not verify: ${out//"$RUNNER_TEMP/sim-bin"/the binary}"
-    fail=1
-  fi
-done
-if [ "$simcount" -ne 1 ]; then
-  echo "::error::Expected exactly 1 simulator binary to check, found $simcount."
-  fail=1
-fi
 if [ "$found" -lt 2 ] || [ "$found" -ne "$expected" ]; then
   echo "::error::Found $found dSYMs in the native-framework archive but its Info.plist declares $expected (at least 2 are required)."
   fail=1
