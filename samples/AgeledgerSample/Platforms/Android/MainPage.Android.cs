@@ -6,6 +6,7 @@ using Google.Android.Play.AgeSignals.Model;
 using Google.Android.Play.AgeSignals.Testing;
 #endif
 using Ageledger;
+using Microsoft.Extensions.DependencyInjection;
 using Switch = Microsoft.Maui.Controls.Switch;
 using Platform = Microsoft.Maui.ApplicationModel.Platform;
 
@@ -38,16 +39,17 @@ public sealed partial class MainPage
     private readonly Picker exceptionOn = new() { ItemsSource = new[] { "Access call (SetNextRequestAgeSignalsAccessException)", "Check call (SetNextAgeSignalsException)", "Both" }, SelectedIndex = 0 };
 #endif
 
-    private partial IAgeSignalsProvider CreateProvider()
+    // Real manager: nothing to add, the backend comes from AddAgeledger and AddAgeledgerActivity. Debug with the Fake (or a null activity) builds its backend by hand,
+    // because the helpers cannot take a fake manager; it is registered first, so AddAgeledger keeps it.
+    private partial void AddPlatformServices(IServiceCollection services)
     {
 #if DEBUG
         if (!useRealManager.IsToggled)
         {
             Func<Activity?> activity = nullActivity.IsToggled ? () => null : () => Platform.CurrentActivity;
-            return new AndroidAgeSignalsProvider(new GoogleAgeSignalsBackend(activity, manager: fake));
+            services.AddSingleton<IAndroidAgeSignalsBackend>(new GoogleAgeSignalsBackend(activity, manager: fake));
         }
 #endif
-        return new AndroidAgeSignalsProvider(new GoogleAgeSignalsBackend(() => Platform.CurrentActivity));
     }
 
     private partial void AddPlatformControls()

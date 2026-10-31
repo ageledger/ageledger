@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Switch = Microsoft.Maui.Controls.Switch;
 using Ageledger;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AgeledgerSample;
 
@@ -11,10 +12,10 @@ namespace AgeledgerSample;
 public sealed partial class MainPage : ContentPage
 {
     private static readonly string AppData = FileSystem.AppDataDirectory;
-    private static readonly string LogFile = Path.Combine(AppData, "age-decisions.jsonl");
+    private static readonly string LogFile = SampleServices.LogFile;
     private const string LaunchKey = "evaluate-at-launch";
     private const string LaunchDelayKey = "evaluate-at-launch-delay-ms";
-    private const string EnabledKey = "enabled";
+    internal const string EnabledKey = "enabled";
     private const string TimeoutKey = "request-timeout-ms";
     internal const string UseRealManagerKey = "use-real-manager";
 
@@ -60,7 +61,7 @@ public sealed partial class MainPage : ContentPage
     private readonly Switch unwritableLog = new();
 #endif
 
-    private partial IAgeSignalsProvider CreateProvider();
+    private partial void AddPlatformServices(IServiceCollection services);
     private partial void AddPlatformControls();
 
     public MainPage()
@@ -240,21 +241,32 @@ public sealed partial class MainPage : ContentPage
     /// <summary>Builds a new service from the controls. An invalid setting (checked only when enabled) returns false; Evaluate then does not run.</summary>
     private bool Rebuild()
     {
-        var options = new AgeSignalsOptions
-        {
-            Enabled = enabled.IsToggled,
-            AgeGates = Presets[Math.Max(0, gates.SelectedIndex)].Gates,
-            MinimumAge = int.TryParse(minimumAge.Text, out var min) ? min : 13,
-            AgeBucketLogging = bucketLogging.SelectedIndex == 1 ? AgeBucketLogging.Withheld : AgeBucketLogging.Exact,
-            AppVersion = AppInfo.VersionString,
-            RuleId = ruleId.Text ?? "",
-            SharedRangePolicy = customPolicy.IsToggled ? _ => AgeDecision.Blocked : null,
-            RequestTimeout = RequestTimeoutMs() is var t and > 0 ? TimeSpan.FromMilliseconds(t) : null,
-        };
+        var isEnabled = enabled.IsToggled;
+        var gateSet = Presets[Math.Max(0, gates.SelectedIndex)].Gates;
+        var minimum = int.TryParse(minimumAge.Text, out var min) ? min : 13;
+        var bucket = bucketLogging.SelectedIndex == 1 ? AgeBucketLogging.Withheld : AgeBucketLogging.Exact;
+        var rule = ruleId.Text ?? "";
+        var policy = customPolicy.IsToggled;
+        var timeout = RequestTimeoutMs() is var t and > 0 ? TimeSpan.FromMilliseconds(t) : (TimeSpan?)null;
         try
         {
-            service = new AgeSignalsService(options, CreateProvider(), log);
-            status.Text = $"Service built (enabled={options.Enabled}).{startupNote}";
+            // A new container each time, so the settings can change; the page's own log (which a debug option can point elsewhere) and, in Debug, the Fake backend are registered first and kept.
+            var services = new ServiceCollection();
+            services.AddSingleton(log);
+            AddPlatformServices(services);
+            SampleServices.Register(services, o =>
+            {
+                o.Enabled = isEnabled;
+                o.AgeGates = gateSet;
+                o.MinimumAge = minimum;
+                o.AgeBucketLogging = bucket;
+                o.AppVersion = AppInfo.VersionString;
+                o.RuleId = rule;
+                o.SharedRangePolicy = policy ? _ => AgeDecision.Blocked : null;
+                o.RequestTimeout = timeout;
+            });
+            service = services.BuildServiceProvider().GetRequiredService<AgeSignalsService>();
+            status.Text = $"Service built (enabled={isEnabled}).{startupNote}";
             startupNote = "";
             return true;
         }

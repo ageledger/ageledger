@@ -122,6 +122,8 @@ The Debug sample's built-in self-test (device-test-plan.md, sections 7.5 and 7.6
 | Android 13 phone | 57 of 57 cases passed, complete, no case-count mismatch | write 1 of 1, read 1 of 1 | 0 | about 93 s |
 | iPhone on iOS 27.0.1 | 20 of 20 cases passed (including L13), complete, no case-count mismatch | write 1 of 1, read 1 of 1 | 0 | about 73 s |
 
+Row D1 (the app's own container) was added after these runs: the default suite now has 58 cases on Android and 21 on iOS (58 of 58 and 21 of 21 when it passes), and no run with D1 has been recorded yet. The 57 of 57 and 20 of 20 above are the counts before D1.
+
 Nothing moves out of the README "Unverified" list because of these runs: they test the library's logic and, on Android, the binding code against fakes, not Apple's sheet or Google's live service.
 
 ## iPhone UI-test runs, 2026-10-26

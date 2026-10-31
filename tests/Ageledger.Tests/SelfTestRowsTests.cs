@@ -171,8 +171,8 @@ public class SelfTestRowsTests
         Assert.Equal(new[] { ("L3", "read") }, Pairs("l3-read", "android", false));
         Assert.Equal(new[] { ("L3", "write") }, Pairs("l3-write", "ios", false));
         Assert.Equal(new[] { ("L3", "read") }, Pairs("l3-read", "ios", false));
-        Assert.Equal(57, Pairs("all", "android", false).Count);
-        Assert.Equal(20, Pairs("all", "ios", false).Count);
+        Assert.Equal(58, Pairs("all", "android", false).Count);
+        Assert.Equal(21, Pairs("all", "ios", false).Count);
         Assert.Equal(new[] { ("A20", "") }, Pairs("real-play", "android", false));
         Assert.Equal(new[] { ("A21", "") }, Pairs("real-play", "android", true));
         Assert.Empty(Pairs("real-play", "ios", false));
