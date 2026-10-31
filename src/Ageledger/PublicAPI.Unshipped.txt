@@ -1,11 +1,1 @@
 #nullable enable
-Microsoft.Extensions.DependencyInjection.AgeledgerServiceCollectionExtensions
-static Microsoft.Extensions.DependencyInjection.AgeledgerServiceCollectionExtensions.AddAgeledger(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<Ageledger.AgeSignalsOptions!>? configure = null) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
-static Microsoft.Extensions.DependencyInjection.AgeledgerServiceCollectionExtensions.AddAgeledgerFileLog(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, string! path) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
-Ageledger.NoAgeSignalsProvider
-Ageledger.NoAgeSignalsProvider.GetRequiredRegulatoryFeaturesAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Ageledger.RegulatoryFeatures?>!
-Ageledger.NoAgeSignalsProvider.IsEligibleForAgeFeaturesAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool?>!
-Ageledger.NoAgeSignalsProvider.NoAgeSignalsProvider() -> void
-Ageledger.NoAgeSignalsProvider.Platform.get -> Ageledger.AgeSignalsPlatform
-Ageledger.NoAgeSignalsProvider.RequestAgeSignalsAsync(Ageledger.AgeSignalsOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Ageledger.AgeSignalsOutcome!>!
-Ageledger.NoAgeSignalsProvider.ShowSignificantUpdateAcknowledgmentAsync(string! updateDescription, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Ageledger.SignificantUpdateOutcome>!

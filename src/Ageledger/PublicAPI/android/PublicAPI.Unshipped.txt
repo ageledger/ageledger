@@ -1,2 +1,1 @@
 #nullable enable
-static Microsoft.Extensions.DependencyInjection.AgeledgerServiceCollectionExtensions.AddAgeledgerActivity(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Func<Android.App.Activity?>! currentActivity) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
