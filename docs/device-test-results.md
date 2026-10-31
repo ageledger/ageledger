@@ -122,7 +122,7 @@ The Debug sample's built-in self-test (device-test-plan.md, sections 7.5 and 7.6
 | Android 13 phone | 57 of 57 cases passed, complete, no case-count mismatch | write 1 of 1, read 1 of 1 | 0 | about 93 s |
 | iPhone on iOS 27.0.1 | 20 of 20 cases passed (including L13), complete, no case-count mismatch | write 1 of 1, read 1 of 1 | 0 | about 73 s |
 
-Row D1 (the app's own container) was added after these runs: the default suite now has 58 cases on Android and 21 on iOS (58 of 58 and 21 of 21 when it passes), and no run with D1 has been recorded yet. The 57 of 57 and 20 of 20 above are the counts before D1.
+Row D1 (the app's own container) was added after these runs: the default suite now has 58 cases on Android and 21 on iOS (58 of 58 and 21 of 21 when it passes), and the first runs with D1 are recorded below, under "Runs on 2026-10-30". The 57 of 57 and 20 of 20 above are the counts before D1.
 
 Nothing moves out of the README "Unverified" list because of these runs: they test the library's logic and, on Android, the binding code against fakes, not Apple's sheet or Google's live service.
 
@@ -225,3 +225,10 @@ Pixel 4a (Android 13), Debug sample, self-test (`scripts/selftest-android.sh --r
 - Before this change, the old L4 (1001 real appends) timed out at its 150 s limit on this phone, on main as well: each append flushes the whole file to disk, about 150 ms on this device.
 
 iPhone (iOS 27.0.1, Apple sandbox account), I18 UI test from main on 2026-10-30: the timeout pass again ended with `Error` / `Timeout` at about 15.2 s; the Cancel pass was not exercised (the UI test did not find the `cancel` control in the sample's accessibility tree); the scenario read back Off at the end.
+
+Row D1 (the app's own container), Debug sample built from main at 6854279, self-test run on both devices:
+
+- Pixel 4a (Android 13), `scripts/selftest-android.sh --real-play`, exit 0: suite `all` 58 of 58, complete, no deadline, 3504 ms. D1 passed (saved Enabled off, provider platform Android, the second container with Enabled forced on resolved an enabled service on the Android provider). Row L4 (1000 kept) passed in 523 ms. Restart check: `l3-write` 1/1, `l3-read` 1/1. Real Play manager (A20, recorded, not asserted): `NotShared`, logged.
+- iPhone SE (iOS 27.0.1), `scripts/selftest-ios.sh`, exit 0, fakes only (no Apple sheet): suite `all` 21 of 21, complete, 695 ms. D1 passed (saved Enabled on, provider platform iOS, the forced-on container resolved an enabled service on the iOS provider). Row L4 (1000 kept) passed in 441 ms. Restart check: `l3-write` 1/1, `l3-read` 1/1.
+- What this shows: on both devices the app's container (`AddAgeledger` and `AddAgeledgerFileLog`, and on Android `AddAgeledgerActivity`) resolves the service, and a container built through the same registration with Enabled forced on resolves an enabled service on the platform provider; on Android that shows the activity registration is present.
+- What this does not show: an evaluation through the service built by the container against the real backends. D1 evaluates nothing, and the real Play row (A20) uses a service the self-test builds itself. The Mac Catalyst and Windows path was not run.
