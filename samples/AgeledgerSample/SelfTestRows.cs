@@ -102,6 +102,8 @@ internal static class SelfTestRows
             Ok(AgeSignalsState.Shared, "withheld", AgeDecision.Blocked)),
         new("L12", "both", Range, All, "0-17 with MinimumAge 18 is Blocked (younger end)", Ok(AgeSignalsState.Shared, "0-17", AgeDecision.Blocked)),
 
+        new("D1", "both", "app container", All, "the service resolves from the app's own container (AddAgeledger helpers), is a singleton, IsEnabled matches the saved Enabled setting, and the provider is this platform's",
+            new Expect("")),
         new("L13", "both", Range, All, "the sample's saved settings and the manual log file are the same before and after the run", new Expect("")),
         new("8.1b", "both", Range, All, "pre-cancelled token: OperationCanceledException, no platform call, no log entry, short elapsed time", new Expect("")),
     ];

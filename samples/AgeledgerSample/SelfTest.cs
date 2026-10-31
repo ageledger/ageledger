@@ -194,6 +194,7 @@ internal sealed partial class SelfTestRun
             {
                 case "all":
                     await RunLogRowsAsync().ConfigureAwait(false);
+                    await RunCase("D1", "", () => Task.FromResult(CheckAppContainer())).ConfigureAwait(false);
                     await platform.RunPlatformRowsAsync(this).ConfigureAwait(false);
                     await RunCase("L13", "", () => Task.FromResult(Obs.Check(Snapshot() == before))).ConfigureAwait(false);
                     break;

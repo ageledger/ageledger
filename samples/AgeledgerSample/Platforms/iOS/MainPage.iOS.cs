@@ -1,10 +1,12 @@
 using Ageledger;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AgeledgerSample;
 
 public sealed partial class MainPage
 {
-    private partial IAgeSignalsProvider CreateProvider() => new AppleAgeSignalsProvider(new AppleAgeRangeBackend());
+    // The real Apple backend comes from AddAgeledger.
+    private partial void AddPlatformServices(IServiceCollection services) { }
 
     private partial void AddPlatformControls()
     {

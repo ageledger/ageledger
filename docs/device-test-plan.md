@@ -329,6 +329,7 @@ Gates 13/16/18 and the default policy unless stated.
 | L10 | `AgeBucketLogging=Exact`, then `Withheld`, same scenario (A3 or I6) | the screen shows `13-15` both times; the exported entry shows `13-15` for Exact and `withheld` for Withheld; earlier rows are unchanged; the decision is the same |
 | L11 | `AgeBucketLogging=Withheld` with a Blocked result (range received) | the entry has bucket `withheld` and decision `Blocked` (the decision can still imply an age group; record it as expected, not a defect) |
 | L12 | Default policy, younger end: A4b (0-17) with `MinimumAge=18`, and I7c | `Blocked` |
+| D1 | Debug self-test only: resolve `AgeSignalsService` from the app's own container (registered in `MauiProgram` with `AddAgeledger`, `AddAgeledgerFileLog` and, on Android, `AddAgeledgerActivity`) | it resolves, is the same instance on a second resolve, `IsEnabled` equals the saved Enabled setting, and the provider's platform is Android on Android and iOS on iOS; a second container built through the same `SampleServices.Register` with Enabled forced on (made-up values, no log) also resolves the service with `IsEnabled` true and the same platform, which on Android proves the `AddAgeledgerActivity` registration (it throws without it); the saved settings are not read or changed for it; nothing is evaluated, so no platform call and no log entry |
 | L13 | A run of the self-test (section 7.6), then look at the sample's saved settings and the manual log | unchanged: the self-test never writes the settings or the manual log |
 
 ### 7.5 Coverage by automation
@@ -379,6 +380,7 @@ Which rows the Debug sample's self-test runs by itself (section 7.6) and which s
 | L10 | self-test (Android: fake manager; iOS: fake backend) |
 | L11 | self-test (Android: fake manager; iOS: fake backend) |
 | L12 | self-test (Android: fake manager; iOS: fake backend) |
+| D1 | self-test (the app's own container; no fake involved, nothing is evaluated) |
 | L13 | self-test (settings and log snapshot) |
 | 8.1b | self-test (plan item 8.1(b), pre-cancelled token: only OperationCanceledException, no platform call, no log entry, short time; "no sheet shown" needs the UI test) |
 | 8.1 (a), (c), (d), (e) | UI test (planned) |
@@ -392,7 +394,7 @@ Which rows the Debug sample's self-test runs by itself (section 7.6) and which s
 
 ### 7.6 Running the self-test
 
-The self-test is compiled into Debug builds of the sample only (`#if DEBUG`, in its own files; nothing in the library). It runs when the app is launched with a suite name and a random nonce, and ignores any other launch. It builds its own `AgeSignalsService` instances in code, so the page's controls and saved settings are not read or changed (row L13 checks that), and evaluate-at-launch is skipped while it runs. It logs into a `selftest/` folder of the app data directory and deletes the folder afterwards. Every service has a `RequestTimeout`, and the whole run has a 300 second limit. It uses fakes, except the opt-in `real-play` suite on Android (below); no row calls Apple's real backend, so no Apple sheet can appear. A run starts at most once per process, and on Android the launch extras are ignored when the activity is recreated or reopened from the recents list, and are removed once read.
+The self-test is compiled into Debug builds of the sample only (`#if DEBUG`, in its own files; nothing in the library). It runs when the app is launched with a suite name and a random nonce, and ignores any other launch. It builds its own `AgeSignalsService` instances in code (only row D1 resolves the service from the app's own container, and it reads it without changing anything), so the page's controls and saved settings are not read or changed (row L13 checks that), and evaluate-at-launch is skipped while it runs. It logs into a `selftest/` folder of the app data directory and deletes the folder afterwards. Every service has a `RequestTimeout`, and the whole run has a 300 second limit. It uses fakes, except the opt-in `real-play` suite on Android (below); no row calls Apple's real backend, so no Apple sheet can appear. A run starts at most once per process, and on Android the launch extras are ignored when the activity is recreated or reopened from the recents list, and are removed once read.
 
 In a Debug build any app on the same device could start the self-test through the exported launcher activity. It only runs the checks above and writes the results file inside the sample's private storage, but do not leave a Debug build installed on a device you do not control.
 
@@ -406,6 +408,8 @@ Host scripts drive a run and print a table of row, state, bucket, decision, logg
 - The phone must be unlocked and awake for the launch. When a launch fails the scripts print only the problem lines of the launch output, with the device id and quoted strings redacted; do not paste launch output into the docs. The scripts do not change any device setting.
 
 Run on 2026-10-25 with this version of the self-test (including the per-case count check), default suites without `--real-play`: on an Android phone running Android 13, the main suite passed 57 of 57 cases (complete, no case-count mismatch), the write step of the restart check 1 of 1 and the read step 1 of 1, the script exited 0, about 93 seconds in all; on an iPhone running iOS 27.0.1 the main suite passed 20 of 20 (including L13, complete, no mismatch), the restart check 1 of 1 and 1 of 1, exit 0, about 73 seconds. Passing the launch arguments to `devicectl`, the iOS results path (`Library/selftest-results.json`) and the Android `am start` component worked as written. These runs used the fake manager and fake backend only; the `real-play` suite was not run and no Apple sheet can appear in them. They say nothing about Apple's sheet or Google's live service.
+
+Row D1 (the app's own container) was added after these runs: the default suite now has 58 cases on Android and 21 on iOS (58 of 58 and 21 of 21 when it passes), and no run with D1 has been recorded yet. The 57 of 57 and 20 of 20 above are the counts before D1.
 
 Android launch change (2026-10-30): the self-test launch no longer starts a fixed `<package>/<package>.MainActivity`. `scripts/selftest-android.sh` now asks the device for the app's launcher activity (`cmd package resolve-activity --brief`) and starts that component with `am start -W -n`, with the same extras. The 2026-10-25 Android result above was observed with the earlier launch; the new launch will be re-run on the Pixel and recorded here once observed.
 
