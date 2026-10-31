@@ -22,31 +22,25 @@ internal sealed partial class SelfTestRun
         var provider = services.GetRequiredService<IAgeSignalsProvider>();
         var expectedPlatform = platform.Name == "android" ? AgeSignalsPlatform.Android : AgeSignalsPlatform.iOS;
         var savedEnabled = MainPage.SafePref(MainPage.EnabledKey);
-        var ok = ResolvesWhenEnabled(expectedPlatform) && ReferenceEquals(service, services.GetRequiredService<AgeSignalsService>())
+        var forced = ResolvesWhenEnabled(expectedPlatform);
+        var ok = forced && ReferenceEquals(service, services.GetRequiredService<AgeSignalsService>())
             && service.IsEnabled == options.Enabled && service.IsEnabled == savedEnabled
             && provider.Platform == expectedPlatform;
-        return Obs.Check(ok, $"enabled={(service.IsEnabled ? 1 : 0)} platform={(int)provider.Platform}");
+        return Obs.Check(ok, $"enabled={(service.IsEnabled ? 1 : 0)} platform={(int)provider.Platform} forced={(forced ? 1 : 0)}");
     }
 
-    /// <summary>Builds a container through <see cref="SampleServices.Register"/> with Enabled forced on (made-up values, no log) and resolves the service without evaluating.</summary>
+    /// <summary>Builds a container through <see cref="SampleServices.Register"/> with Enabled forced on (<see cref="SampleForcedOptions"/>, no log) and resolves the service without evaluating.</summary>
     private static bool ResolvesWhenEnabled(AgeSignalsPlatform expectedPlatform)
     {
         try
         {
             var collection = new ServiceCollection();
-            SampleServices.Register(collection, o =>
-            {
-                o.Enabled = true;
-                o.AgeGates = [13, 16, 18];
-                o.MinimumAge = 13;
-                o.AppVersion = "0.0.0-selftest";
-                o.RuleId = "TEST";
-            });
+            SampleServices.Register(collection, SampleForcedOptions.Apply);
             using var provider = collection.BuildServiceProvider();
             var forced = provider.GetRequiredService<AgeSignalsService>();
             return forced.IsEnabled && provider.GetRequiredService<IAgeSignalsProvider>().Platform == expectedPlatform;
         }
-        catch (InvalidOperationException)
+        catch (Exception)
         {
             return false;
         }

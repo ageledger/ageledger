@@ -57,6 +57,16 @@ public class PolicyAndServiceTests
     // ---- feature flag ----
 
     [Fact]
+    public void Sample_forced_options_are_accepted_by_an_enabled_service()
+    {
+        var options = new AgeSignalsOptions();
+        AgeledgerSample.SampleForcedOptions.Apply(options);
+        var (provider, _) = Android();
+        var svc = new AgeSignalsService(options, provider);
+        Assert.True(svc.IsEnabled);
+    }
+
+    [Fact]
     public void Everything_is_off_by_default() => Assert.False(new AgeSignalsOptions().Enabled);
 
     [Fact]
