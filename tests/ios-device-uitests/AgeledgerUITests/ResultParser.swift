@@ -19,7 +19,7 @@ enum ResultParser {
     }
 
     /// Whether the UI test may tap the sample's Cancel button: only when no system sheet was seen, the button is hittable where it is
-    /// (the test never scrolls for it) and the sample is the foreground app. Otherwise the tap could land on something else.
+    /// (the test may scroll for it once, before Evaluate, never after) and the sample is the foreground app. Otherwise the tap could land on something else.
     static func shouldTapCancel(sheetSeen: Bool, hittable: Bool, foreground: Bool) -> Bool {
         !sheetSeen && hittable && foreground
     }
