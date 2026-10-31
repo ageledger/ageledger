@@ -6,7 +6,7 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ### Fixed
 
-- The iOS framework bundled in the package now carries a valid ad-hoc signature (in 0.1.0-preview.1 and 0.1.0-preview.2 its signature did not match its contents: the device slice was unsigned and the Simulator slice had a stale one). CI now verifies the signature in the package and in the sample app. This has no effect on apps built with code signing on (the default), which re-sign the framework. In a default-signing Simulator build of the sample, the bundle, main binary, framework and runtime libraries verified with `codesign -vv --strict` and the app launched (control run, 2026-10-30); in a device build the framework verified with the developer identity (not run on a device).
+- The iOS framework bundled in the package now carries a valid ad-hoc signature (in 0.1.0-preview.1 and 0.1.0-preview.2 its signature did not match its contents: the device slice was unsigned and the Simulator slice had a stale one). CI now verifies the signature in the package and in the sample app. This has no effect on apps built with code signing on (the default), which re-sign the framework. In a default-signing Simulator build of the sample, the bundle, main binary, framework and the two runtime libraries checked (libmonosgen-2.0, libSystem.Native) verified with `codesign -vv --strict`, and the app launched and was still running after 10 s (control run, 2026-10-30); in a device build the framework verified with the developer identity (not run on a device).
 
 ### Changed
 
