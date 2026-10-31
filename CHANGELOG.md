@@ -4,8 +4,13 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## Unreleased
 
+### Fixed
+
+- The iOS framework bundled in the package now carries a valid ad-hoc signature (in 0.1.0-preview.1 and 0.1.0-preview.2 its signature did not match its contents: the device slice was unsigned and the Simulator slice had a stale one). CI now verifies the signature in the package and in the sample app. This has no effect on apps built with code signing on (the default), which re-sign the framework. In a default-signing Simulator build of the sample, the bundle, main binary, framework and the two runtime libraries checked (libmonosgen-2.0, libSystem.Native) verified with `codesign -vv --strict`, and the app launched and was still running after 10 s (control run, 2026-10-30); in a device build the framework verified with the developer identity (not run on a device).
+
 ### Changed
 
+- Docs: to run an app on the Simulator, keep code signing on (the default; Simulator builds are signed ad-hoc, and whether that works on a Mac with no developer identity was not checked). `-p:EnableCodeSigning=false` is for compile-only builds, as in CI: observed with the iOS 27 Simulator runtime, an app built with it was killed at launch ("Code Signature Invalid"), because in that build the app's main binary and the .NET runtime libraries were not validly signed.
 - The iPhone UI test for row I18 now waits for the request-timeout picker and the Cancel button separately, names the missing one in its error, attaches the sample's accessibility tree (`sample-tree`) when one is missing, and scrolls Cancel into view before Evaluate (never while a request is in flight). Sample UI test only; nothing in the library changed. Not run on a device yet.
 - The sample app now registers the service through `AddAgeledger`, `AddAgeledgerFileLog` and (Android) `AddAgeledgerActivity` instead of constructing it by hand; the page builds a fresh container whenever its settings change. In Debug builds the Fake backends used by the sample's Fake rows and by the self-test are still built by hand. Nothing in the library changed.
 - The Debug self-test has a new row, D1, that resolves the service from the app's own container and checks the saved Enabled setting and the platform of the provider; it also builds a second container through the same registration with Enabled forced on and resolves the service, which on Android proves the activity registration.

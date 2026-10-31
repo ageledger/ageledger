@@ -91,7 +91,7 @@ xcrun devicectl device install app --device <IPHONE_UDID> <path to AgeledgerSamp
 xcrun devicectl device process launch --device <IPHONE_UDID> com.example.agesample
 ```
 
-The first iOS build also builds the Swift wrapper (`native/ios/build.sh`, needs Xcode). The `.app` is under the sample's `bin/` folder for that configuration and runtime identifier; for the device build it is `samples/AgeledgerSample/bin/Debug/net10.0-ios/ios-arm64/AgeledgerSample.app`. To check that the entitlement made it into the signed app: `codesign -d --entitlements :- <the .app>` should show `com.apple.developer.declared-age-range`. (The README's "Unverified" list notes that this project has not checked the signing of the embedded framework beyond what its device runs showed.)
+The first iOS build also builds the Swift wrapper (`native/ios/build.sh`, needs Xcode). The `.app` is under the sample's `bin/` folder for that configuration and runtime identifier; for the device build it is `samples/AgeledgerSample/bin/Debug/net10.0-ios/ios-arm64/AgeledgerSample.app`. To check that the entitlement made it into the signed app: `codesign -d --entitlements :- <the .app>` should show `com.apple.developer.declared-age-range`. (The README's "Unverified" list notes that this project has not checked the signing of the embedded framework beyond what its device runs showed. The framework inside the package carries an ad-hoc signature, verified with `codesign`; that signature is in the release after 0.1.0-preview.2. It makes no difference to apps built with code signing on, which re-sign the framework.)
 
 In the sample:
 
@@ -113,7 +113,7 @@ The labels are the ones the UI test matches on iOS 27.0.1 (`tests/ios-device-uit
 Two things to know:
 
 - With the scenario **Off**, Evaluate did not return within 60 seconds in this project's runs. Use the sample's request timeout picker (for example 15000 ms) or its Cancel button instead of waiting. See the Unverified list in the README for what has and has not been seen.
-- On the **iOS Simulator** the real Apple backend returned Unavailable in this project's runs; use an iPhone for real values. The Simulator needs no signing: add `-p:RuntimeIdentifier=iossimulator-arm64`, and `-p:EnableCodeSigning=false` on a Mac with no signing identity.
+- On the **iOS Simulator** the real Apple backend returned Unavailable in this project's runs; use an iPhone for real values. Add `-p:RuntimeIdentifier=iossimulator-arm64`. To run on the Simulator keep code signing on (the default; Simulator builds are signed ad-hoc, and whether that works on a Mac with no developer identity was not checked). `-p:EnableCodeSigning=false` is for compile-only builds (as in CI): observed with the iOS 27 Simulator runtime, an app built with it was killed at launch ("Code Signature Invalid"), because in that build the app's main binary and the .NET runtime libraries were not validly signed.
 
 The Debug build also has a built-in self-test that uses fakes only and never shows Apple's sheet: `scripts/selftest-ios.sh <IPHONE_UDID>` (needs `scripts/devices.local`; see device-test-plan.md section 7.6).
 

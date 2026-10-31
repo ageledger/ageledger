@@ -61,6 +61,9 @@ build_slice() { # <dir> <sdk> <target>
 <key>MinimumOSVersion</key><string>$MIN</string>
 </dict></plist>
 PLIST
+  # Sign last, once the bundle is complete, so the shipped bundle's signature matches its contents: the linker's own ad-hoc signature goes stale
+  # when strip rewrites the binary and Info.plist is added. App builds with code signing on re-sign the framework anyway.
+  codesign --force --sign - --timestamp=none "$fw"
 }
 
 build_slice device iphoneos "arm64-apple-ios$MIN"
