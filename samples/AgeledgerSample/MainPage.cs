@@ -251,6 +251,7 @@ public sealed partial class MainPage : ContentPage
         try
         {
             // A new container each time, so the settings can change; the page's own log (which a debug option can point elsewhere) and, in Debug, the Fake backend are registered first and kept.
+            // This per-change container is a convenience for this test page only: an app registers once in MauiProgram and resolves that one service.
             var services = new ServiceCollection();
             services.AddSingleton(log);
             AddPlatformServices(services);
