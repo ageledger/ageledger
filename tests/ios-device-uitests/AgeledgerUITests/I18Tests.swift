@@ -49,9 +49,11 @@ final class I18Tests: XCTestCase {
         // before any throw, and sampleTouched is set only once launch is confirmed off.
         let sample = SampleApp()
         sample.relaunch()
-        guard sample.hasI18Controls else {
+        let missing = sample.missingI18Controls
+        guard missing.isEmpty else {
+            sample.attachTree()
             sample.app.terminate()
-            throw SandboxSettingsError.elementNotFound("sample controls request-timeout-ms and cancel: install the current Debug sample")
+            throw SandboxSettingsError.elementNotFound("sample control(s) not found: \(missing.joined(separator: ", ")) (install the current Debug sample; the tree is attached as sample-tree)")
         }
         guard ResultParser.launchGuard(launchOn: sample.evaluateAtLaunch) == .proceed else {
             sample.app.terminate()
@@ -107,6 +109,7 @@ final class I18Tests: XCTestCase {
         let started = Date()
         let probe = SheetProbe.look(timeout: 3)
         var sheetSeen = probe.seen
+        if cancelAfter != nil, !sheetSeen { sample.scrollCancelIntoView() } // the page is a scroll view; Cancel sits beside Evaluate but may be off screen on a small display
         var text = ""
         var cancelStatus: String?
         if let cancelAfter {

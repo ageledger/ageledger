@@ -195,7 +195,7 @@ run_xcb() {
 PY='
 import json, os, re, sys
 mode, root, udid = sys.argv[1:4]
-ALLOW = ("exploration-report", "i18-report", "sheet-findings-first", "sample-with-sheet", "original-scenario", "restore-report", "reinstall-probe", "settings-alert", "settings-structure")
+ALLOW = ("exploration-report", "i18-report", "sheet-findings-first", "sample-with-sheet", "original-scenario", "restore-report", "reinstall-probe", "settings-alert", "settings-structure", "sample-tree")
 manifest = os.path.join(root, "manifest.json")
 kept = []
 if os.path.exists(manifest):

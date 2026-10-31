@@ -32,7 +32,11 @@ struct SampleApp {
     func tapEvaluate() throws { try tapButton("evaluate") }
 
     /// True when the sample has the request-timeout picker (an older sample does not).
-    var hasRequestTimeoutPicker: Bool { app.textFields["request-timeout-ms"].exists || app.buttons["request-timeout-ms"].exists }
+    /// Waits up to 5 s for it (a picker is a text field on iOS, but any element type with the id counts).
+    var hasRequestTimeoutPicker: Bool {
+        app.textFields["request-timeout-ms"].waitForExistence(timeout: 5) || app.buttons["request-timeout-ms"].exists
+            || app.descendants(matching: .any)["request-timeout-ms"].exists
+    }
 
     /// Sets the timeout to "None" with read-back, but only if the picker exists and shows something else. nil = no picker (older sample).
     /// Never scrolls: a picker that is not hittable where it is counts as not set (false), because a swipe could land on a system sheet.
@@ -53,8 +57,39 @@ struct SampleApp {
         return value == "1"
     }
 
+    /// The I18 controls that are missing (empty = both exist): "request-timeout-ms" (the picker) and/or "cancel" (the button).
+    /// Each is waited for separately, so a slow first layout is not mistaken for an older sample.
+    var missingI18Controls: [String] {
+        var missing: [String] = []
+        if !hasRequestTimeoutPicker { missing.append("request-timeout-ms") }
+        let cancel = app.buttons["cancel"]
+        if !(cancel.waitForExistence(timeout: 5) || app.descendants(matching: .any)["cancel"].exists) { missing.append("cancel") }
+        return missing
+    }
+
     /// Whether the I18 controls exist (the picker and the Cancel button).
-    var hasI18Controls: Bool { hasRequestTimeoutPicker && app.buttons["cancel"].waitForExistence(timeout: 5) }
+    var hasI18Controls: Bool { missingI18Controls.isEmpty }
+
+    /// Attaches the sample's accessibility tree (the sample's own labels and ids only) to the test activity, so the next run shows what
+    /// was really on screen. It stays in the local result bundle; scripts/ios-uitests.sh keeps it only as "sample-tree" and scans it.
+    func attachTree(named name: String = "sample-tree") {
+        let attachment = XCTAttachment(string: app.debugDescription)
+        attachment.name = name
+        attachment.lifetime = XCTAttachment.Lifetime.keepAlways
+        XCTContext.runActivity(named: name) { $0.add(attachment) }
+    }
+
+    /// Swipes the sample's scroll view up (at most 3 times) until Cancel is hittable. Does nothing when it already is, or when the sample
+    /// is not in the foreground. The caller must only use it when no system sheet has been seen, since a swipe could land on one.
+    func scrollCancelIntoView() {
+        let button = app.buttons["cancel"]
+        var attempts = 0
+        while attempts < 3, app.state == .runningForeground, button.exists, !button.isHittable {
+            let scroll = app.scrollViews.firstMatch
+            if scroll.exists { scroll.swipeUp() } else { app.swipeUp() }
+            attempts += 1
+        }
+    }
 
     /// Taps the sample's Cancel button (it cancels the most recent Evaluate still running; with none it says so in the status line).
     /// Never scrolls: it throws unless the button is hittable where it is and the sample is the foreground app, so the tap cannot land
