@@ -49,9 +49,11 @@ final class I18Tests: XCTestCase {
         // before any throw, and sampleTouched is set only once launch is confirmed off.
         let sample = SampleApp()
         sample.relaunch()
-        guard sample.hasI18Controls else {
+        let missing = sample.missingI18Controls
+        guard missing.isEmpty else {
+            if ResultParser.launchGuard(launchOn: sample.evaluateAtLaunch) == .proceed { sample.attachTree() } // only with launch evaluation off: no Apple sheet text in the tree
             sample.app.terminate()
-            throw SandboxSettingsError.elementNotFound("sample controls request-timeout-ms and cancel: install the current Debug sample")
+            throw SandboxSettingsError.elementNotFound("sample control(s) not found: \(missing.joined(separator: ", ")) (install the current Debug sample; the tree is attached as sample-tree)")
         }
         guard ResultParser.launchGuard(launchOn: sample.evaluateAtLaunch) == .proceed else {
             sample.app.terminate()
@@ -96,13 +98,16 @@ final class I18Tests: XCTestCase {
 
     /// One Evaluate in the sample's current process. `cancelAfter` seconds after the tap, the sample's Cancel button is tapped unless a
     /// result is already there, a sheet was seen, or the button cannot be tapped where it is (nothing is scrolled or tapped over system
-    /// UI). The sheet probe covers the first 3 s after the tap and one more second just before Cancel; a sheet that appears later is
+    /// UI; the page may be scrolled once before Evaluate). The sheet probe covers the first 3 s after the tap and one more second just before Cancel; a sheet that appears later is
     /// only noted in the Settings trail, and makes the pass "unknown". A sheet is never answered. The outcome is one of
     /// ResultParser.outcome(of:).
     private func i18Row(_ sample: SampleApp, row: String, note: String, verdict: String, wait: TimeInterval, cancelAfter: TimeInterval?) throws -> ExplorationRow {
         var notes = [note]
         var verdict = verdict
         if !sample.resultText.isEmpty { notes.append("the result label was not empty before Evaluate"); verdict = "unknown" }
+        // No swipe after Evaluate, because a swipe could land on Apple's sheet or a system prompt; so Cancel is scrolled into view
+        // here, while nothing is in flight. If it is still not hittable at tap time, the pass is "unknown".
+        if cancelAfter != nil { sample.scrollCancelIntoView() }
         try sample.tapEvaluate()
         let started = Date()
         let probe = SheetProbe.look(timeout: 3)

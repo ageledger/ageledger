@@ -33,7 +33,8 @@
 #                                              shell code, so keep it to those two assignments and treat it as trusted.
 # Environment: AGELEDGER_LOCK_DIR (then DEVICE_LOCK_DIR, then /tmp/device-locks) holds the per-device locks shared with other users of
 # the device, and the pending-restore file below. The name in scripts/devices.local is only used to scrub output, so it has to match
-# what the device reports about itself.
+# what the device reports about itself. The attachment scan deletes any attachment that contains the name, so a very generic name
+# (just "iPhone", say) makes it delete every attachment that mentions it (fails safe, but then little is kept).
 #
 # --reinstall-probe wipes the sample's preferences and its decision log on the phone (made-up test data only).
 #
@@ -195,7 +196,8 @@ run_xcb() {
 PY='
 import json, os, re, sys
 mode, root, udid = sys.argv[1:4]
-ALLOW = ("exploration-report", "i18-report", "sheet-findings-first", "sample-with-sheet", "original-scenario", "restore-report", "reinstall-probe", "settings-alert", "settings-structure")
+devname = os.environ.get("AGELEDGER_SCAN_NAME", "")   # by environment, not argv, so it is not visible in ps
+ALLOW = ("exploration-report", "i18-report", "sheet-findings-first", "sample-with-sheet", "original-scenario", "restore-report", "reinstall-probe", "settings-alert", "settings-structure", "sample-tree")
 manifest = os.path.join(root, "manifest.json")
 kept = []
 if os.path.exists(manifest):
@@ -218,7 +220,7 @@ for name, path in scan:
     if path.lower().endswith((".png", ".jpg", ".jpeg", ".heic")):
         continue
     text = open(path, errors="ignore").read()
-    if "@" in text or (udid and udid in text) or re.search(r"00008[0-9A-Fa-f]{3}-[0-9A-Fa-f]{16}", text):
+    if "@" in text or (udid and udid in text) or (devname and devname in text) or re.search(r"00008[0-9A-Fa-f]{3}-[0-9A-Fa-f]{16}", text):
         if is_manifest:                         # always deleted below; not a failure
             continue
         print("SENSITIVE TEXT IN ATTACHMENT, removed: " + name)
@@ -295,7 +297,7 @@ export_attachments() {
     echo "could not export attachments for $name" >&2
     return 1
   fi
-  output="$(python3 -I -c "$PY" "$mode" "$dir" "$udid")" || rc=$?
+  output="$(AGELEDGER_SCAN_NAME="$device_name" python3 -I -c "$PY" "$mode" "$dir" "$udid")" || rc=$?
   printf '%s\n' "$output" | scrub
   rm -rf "$out/$name.xcresult"
   if [[ "$drop" == drop ]]; then rm -rf "$dir" "$dir.facts"; fi
