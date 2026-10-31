@@ -128,7 +128,7 @@ jobs:
             echo "::error::The wrapper binary is not in the built app's Frameworks folder."
             exit 1
           fi
-          # With code signing off the embedded framework keeps the signature it was packaged with, so it is verified here.
+          # With code signing off the embedded framework keeps the signature it was packaged with, so it is verified here (this app is compile-checked only, not launched).
           if ! sigout=$(codesign -vv --strict "$app/Frameworks/AgeledgerNative.framework" 2>&1); then
             echo "::error::The embedded AgeledgerNative.framework has no valid signature: ${sigout//"$PWD"/.}"
             exit 1
