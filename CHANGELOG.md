@@ -6,7 +6,7 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ### Changed
 
-- The iPhone UI test for row I18 now waits for the request-timeout picker and the Cancel button separately, names the missing one in its error, attaches the sample's accessibility tree (`sample-tree`) when one is missing, and scrolls Cancel into view before the Cancel pass. Sample UI test only; nothing in the library changed. Not run on a device yet.
+- The iPhone UI test for row I18 now waits for the request-timeout picker and the Cancel button separately, names the missing one in its error, attaches the sample's accessibility tree (`sample-tree`) when one is missing, and scrolls Cancel into view before Evaluate (never while a request is in flight). Sample UI test only; nothing in the library changed. Not run on a device yet.
 - The sample app now registers the service through `AddAgeledger`, `AddAgeledgerFileLog` and (Android) `AddAgeledgerActivity` instead of constructing it by hand; the page builds a fresh container whenever its settings change. In Debug builds the Fake backends used by the sample's Fake rows and by the self-test are still built by hand. Nothing in the library changed.
 - The Debug self-test has a new row, D1, that resolves the service from the app's own container and checks the saved Enabled setting and the platform of the provider; it also builds a second container through the same registration with Enabled forced on and resolves the service, which on Android proves the activity registration. No device run has recorded it yet.
 - The public API baseline files now record the 0.1.0-preview.2 API as shipped.

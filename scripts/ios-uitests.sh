@@ -195,6 +195,7 @@ run_xcb() {
 PY='
 import json, os, re, sys
 mode, root, udid = sys.argv[1:4]
+devname = sys.argv[4] if len(sys.argv) > 4 else ""
 ALLOW = ("exploration-report", "i18-report", "sheet-findings-first", "sample-with-sheet", "original-scenario", "restore-report", "reinstall-probe", "settings-alert", "settings-structure", "sample-tree")
 manifest = os.path.join(root, "manifest.json")
 kept = []
@@ -218,7 +219,7 @@ for name, path in scan:
     if path.lower().endswith((".png", ".jpg", ".jpeg", ".heic")):
         continue
     text = open(path, errors="ignore").read()
-    if "@" in text or (udid and udid in text) or re.search(r"00008[0-9A-Fa-f]{3}-[0-9A-Fa-f]{16}", text):
+    if "@" in text or (udid and udid in text) or (devname and devname in text) or re.search(r"00008[0-9A-Fa-f]{3}-[0-9A-Fa-f]{16}", text):
         if is_manifest:                         # always deleted below; not a failure
             continue
         print("SENSITIVE TEXT IN ATTACHMENT, removed: " + name)
@@ -295,7 +296,7 @@ export_attachments() {
     echo "could not export attachments for $name" >&2
     return 1
   fi
-  output="$(python3 -I -c "$PY" "$mode" "$dir" "$udid")" || rc=$?
+  output="$(python3 -I -c "$PY" "$mode" "$dir" "$udid" "$device_name")" || rc=$?
   printf '%s\n' "$output" | scrub
   rm -rf "$out/$name.xcresult"
   if [[ "$drop" == drop ]]; then rm -rf "$dir" "$dir.facts"; fi

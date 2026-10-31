@@ -34,8 +34,7 @@ struct SampleApp {
     /// True when the sample has the request-timeout picker (an older sample does not).
     /// Waits up to 5 s for it (a picker is a text field on iOS, but any element type with the id counts).
     var hasRequestTimeoutPicker: Bool {
-        app.textFields["request-timeout-ms"].waitForExistence(timeout: 5) || app.buttons["request-timeout-ms"].exists
-            || app.descendants(matching: .any)["request-timeout-ms"].exists
+        app.textFields["request-timeout-ms"].waitForExistence(timeout: 5) || app.descendants(matching: .any)["request-timeout-ms"].exists
     }
 
     /// Sets the timeout to "None" with read-back, but only if the picker exists and shows something else. nil = no picker (older sample).
@@ -62,16 +61,16 @@ struct SampleApp {
     var missingI18Controls: [String] {
         var missing: [String] = []
         if !hasRequestTimeoutPicker { missing.append("request-timeout-ms") }
-        let cancel = app.buttons["cancel"]
-        if !(cancel.waitForExistence(timeout: 5) || app.descendants(matching: .any)["cancel"].exists) { missing.append("cancel") }
+        if !app.buttons["cancel"].waitForExistence(timeout: 5) { missing.append("cancel") }
         return missing
     }
 
     /// Whether the I18 controls exist (the picker and the Cancel button).
     var hasI18Controls: Bool { missingI18Controls.isEmpty }
 
-    /// Attaches the sample's accessibility tree (the sample's own labels and ids only) to the test activity, so the next run shows what
-    /// was really on screen. It stays in the local result bundle; scripts/ios-uitests.sh keeps it only as "sample-tree" and scans it.
+    /// Attaches the sample's accessibility tree to the test activity, so the next run shows what was really on screen. Call it only
+    /// once launch evaluation is known to be off (no Apple sheet text can be in the tree). It stays in the local result bundle;
+    /// scripts/ios-uitests.sh keeps it only as "sample-tree" and scans it (including for the device name).
     func attachTree(named name: String = "sample-tree") {
         let attachment = XCTAttachment(string: app.debugDescription)
         attachment.name = name
@@ -80,7 +79,7 @@ struct SampleApp {
     }
 
     /// Swipes the sample's scroll view up (at most 3 times) until Cancel is hittable. Does nothing when it already is, or when the sample
-    /// is not in the foreground. The caller must only use it when no system sheet has been seen, since a swipe could land on one.
+    /// is not in the foreground. Call it only before Evaluate, never while a request is in flight: a swipe could land on Apple's sheet or a system prompt.
     func scrollCancelIntoView() {
         let button = app.buttons["cancel"]
         var attempts = 0
