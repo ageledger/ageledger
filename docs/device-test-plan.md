@@ -111,7 +111,7 @@ Signals binding need comes from the library, so there is no pin in the sample):
 
 iOS:
 
-1. Simulator: `dotnet build -f net10.0-ios -r iossimulator-arm64` (keep code signing on, the default: on the iOS 27 Simulator an app built with `-p:EnableCodeSigning=false` is killed at launch ("Code Signature Invalid"), because the .NET runtime libraries in the app are unsigned as well. That switch is for compile-only builds (as in CI); to run on the Simulator keep code signing on, the default; a Mac with no signing identity was not checked), then `xcrun simctl install/launch <SIM_UDID> ...`.
+1. Simulator: `dotnet build -f net10.0-ios -r iossimulator-arm64` (keep code signing on, the default; `-p:EnableCodeSigning=false` is for compile-only builds, because an app built with it was killed at launch with the iOS 27 Simulator runtime; a Mac with no signing identity was not checked), then `xcrun simctl install/launch <SIM_UDID> ...`.
    The log file is under `xcrun simctl get_app_container <SIM_UDID> <bundle-id> data`.
 2. iPhone: `dotnet build -f net10.0-ios -r ios-arm64` with manual signing (section 6.3), install with
    `xcrun devicectl device install app --device <IPHONE_UDID> ...`, copy the log out of the app container with

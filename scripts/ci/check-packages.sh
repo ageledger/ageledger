@@ -114,8 +114,8 @@ unzip -q "$spkg" -d "$RUNNER_TEMP/inspect/snupkg"
 for z in "$RUNNER_TEMP"/inspect/nupkg/lib/*/*.resources.zip; do
   unzip -q "$z" -d "$RUNNER_TEMP/inspect/resources/$(basename "$z")"
 done
-# Every framework bundle in the native-framework archive must carry a valid signature. A stale or missing one is killed at launch
-# by a Simulator app built with code signing turned off. Like the dSYM check below, this must not pass by checking nothing.
+# Every framework bundle in the native-framework archive must carry a valid signature, so the shipped bundle's signature matches its
+# contents (a stale or missing one is not valid). Like the dSYM check below, this must not pass by checking nothing.
 found_fw=0
 while IFS= read -r -d '' fw; do
   found_fw=$((found_fw + 1))
