@@ -116,16 +116,16 @@ for z in "$RUNNER_TEMP"/inspect/nupkg/lib/*/*.resources.zip; do
 done
 # Every framework bundle in the native-framework archive must carry a valid signature. A stale or missing one is killed at launch
 # by a Simulator app built with code signing turned off. Like the dSYM check below, this must not pass by checking nothing.
-signed=0
+found_fw=0
 while IFS= read -r -d '' fw; do
-  signed=$((signed + 1))
-  if ! out=$(codesign -vv "$fw" 2>&1); then
-    echo "::error::The signature of a bundled framework is not valid (${fw#"$RUNNER_TEMP"/inspect/resources/}): $out"
+  found_fw=$((found_fw + 1))
+  if ! out=$(codesign -vv --strict "$fw" 2>&1); then
+    echo "::error::The signature of a bundled framework is not valid (${fw#"$RUNNER_TEMP"/inspect/resources/}): ${out//"$RUNNER_TEMP"/...}"
     fail=1
   fi
 done < <(find "$RUNNER_TEMP/inspect/resources" -type d -name '*.framework' -print0)
-if [ "$signed" -lt 2 ]; then
-  echo "::error::Expected at least 2 frameworks (device + simulator) in the native-framework archive, found $signed."
+if [ "$found_fw" -lt 2 ]; then
+  echo "::error::Expected at least 2 frameworks (device + simulator) in the native-framework archive, found $found_fw."
   fail=1
 fi
 for mode in -rIl -rl; do

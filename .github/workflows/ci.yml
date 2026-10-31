@@ -128,6 +128,11 @@ jobs:
             echo "::error::The wrapper binary is not in the built app's Frameworks folder."
             exit 1
           fi
+          # With code signing off the embedded framework keeps the signature it was packaged with, so it is verified here.
+          if ! sigout=$(codesign -vv --strict "$app/Frameworks/AgeledgerNative.framework" 2>&1); then
+            echo "::error::The embedded AgeledgerNative.framework has no valid signature: ${sigout//"$PWD"/.}"
+            exit 1
+          fi
           # With the 26.5 workload this is a guard for future workloads: a release that copies xcframework dSYMs next to the framework must not bundle them into the app.
           if find "$app/Frameworks" -name '*.dSYM' 2>/dev/null | grep -q .; then
             echo "::error::A dSYM sits inside the built app's Frameworks folder."
