@@ -4,6 +4,10 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## Unreleased
 
+### Changed
+
+- The public API baseline files now record the 0.1.0-preview.2 API as shipped.
+
 ## 0.1.0-preview.2 (2026-10-30)
 
 ### Added
