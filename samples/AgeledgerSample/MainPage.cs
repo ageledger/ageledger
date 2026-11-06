@@ -42,6 +42,10 @@ public sealed partial class MainPage : ContentPage
     private readonly Picker bucketLogging = new() { ItemsSource = new[] { "Exact", "Withheld" }, SelectedIndex = 0, AutomationId = "age-bucket-logging" };
     private readonly Picker gates = new() { ItemsSource = Presets.Select(p => p.Name).ToList(), SelectedIndex = 3, AutomationId = "age-gates" };
     private readonly Entry minimumAge = new() { Text = "13", Keyboard = Keyboard.Numeric, AutomationId = "minimum-age" };
+#if DEBUG
+    // Lets a UI test set MinimumAge without the keyboard. It only copies its choice into the MinimumAge field; a relaunch is back to 13.
+    private readonly Picker minimumAgePreset = new() { ItemsSource = new[] { "13", "16", "18" }, SelectedIndex = 0, AutomationId = "minimum-age-preset" };
+#endif
     private readonly Entry ruleId = new() { Text = "TEST" };
     private readonly Switch customPolicy = new();
     private readonly Entry cancelMs = new() { Text = "0", Keyboard = Keyboard.Numeric };
@@ -72,6 +76,14 @@ public sealed partial class MainPage : ContentPage
         Add("AgeBucketLogging", bucketLogging);
         Add("Age gates", gates);
         Add("MinimumAge", minimumAge);
+#if DEBUG
+        Add("MinimumAge preset (debug)", minimumAgePreset);
+        minimumAgePreset.SelectedIndexChanged += (_, _) =>
+        {
+            minimumAge.Text = minimumAgePreset.SelectedItem as string ?? "13";
+            Rebuild();
+        };
+#endif
         Add("Rule id", ruleId);
         Add("Request timeout (ms)", requestTimeout);
         Add("Custom SharedRangePolicy (always Blocked)", customPolicy);
@@ -97,7 +109,7 @@ public sealed partial class MainPage : ContentPage
             var cts = new CancellationTokenSource();
             if (n <= 0) cts.Cancel(); else cts.CancelAfter(TimeSpan.FromMilliseconds(n));
             return RunEvaluate(cts.Token, cts);
-        });
+        }, "evaluate-cancel-after");
         Add("Evaluate at launch", launch);
         Add("Launch delay (ms)", launchDelay);
         launch.IsToggled = SafePref(LaunchKey);
@@ -154,7 +166,12 @@ public sealed partial class MainPage : ContentPage
         var selfTest = SelfTestLaunch.Current;
         if (selfTest is not null) SelfTestHost.Start(selfTest, text => MainThread.BeginInvokeOnMainThread(() => result.Text = text));
 #endif
-        if (launch.IsToggled
+        var launchOnce = false;
+        var launchOnceDelay = 0;
+#if DEBUG
+        (launchOnce, launchOnceDelay) = LaunchOnceArguments();
+#endif
+        if ((launch.IsToggled || launchOnce)
 #if DEBUG
             && selfTest is null
 #endif
@@ -162,6 +179,7 @@ public sealed partial class MainPage : ContentPage
         {
             SaveLaunchDelay(); // Unfocused does not fire when the field is left with Back
             _ = int.TryParse(SafePrefString(LaunchDelayKey), out var delay);
+            if (launchOnce) delay = launchOnceDelay; // this launch only: the stored switch and delay are not changed
             MainThread.BeginInvokeOnMainThread(async () =>
             {
                 if (delay > 0) await Task.Delay(delay);
@@ -224,6 +242,26 @@ public sealed partial class MainPage : ContentPage
     private void AddButton(string text, Action action, string? automationId = null) => AddButton(text, () => { action(); return Task.CompletedTask; }, automationId);
 
 #if DEBUG
+    /// <summary>
+    /// iOS Debug only, for the UI test: the launch arguments <c>-ageledger-launch-evaluate-once 1</c> and an optional
+    /// <c>-ageledger-launch-delay-ms N</c> make this one launch evaluate like "Evaluate at launch" without changing the stored switch or delay.
+    /// </summary>
+    private static (bool On, int DelayMs) LaunchOnceArguments()
+    {
+#if IOS
+        var args = Foundation.NSProcessInfo.ProcessInfo.Arguments;
+        string? Value(string flag)
+        {
+            var i = Array.IndexOf(args, flag);
+            return i >= 0 && i + 1 < args.Length ? args[i + 1] : null;
+        }
+        if (Value("-ageledger-launch-evaluate-once") != "1") return (false, 0);
+        return (true, int.TryParse(Value("-ageledger-launch-delay-ms"), out var ms) && ms is > 0 and <= 60000 ? ms : 0);
+#else
+        return (false, 0);
+#endif
+    }
+
     private void SetLogPath()
     {
         string path = LogFile;

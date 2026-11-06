@@ -132,6 +132,7 @@ scripts/ios-uitests.sh --udid <IPHONE_UDID> --test ExplorationTests/testExplorat
 - **Do not interrupt it.** If the run fails or stops, the script restores the scenario from a separate run. Only a read-back counts as restored. It prints `SCENARIO NOT RESTORED: <label>` if it could not verify the restore; then check the scenario by hand.
 - Restore marker: the script keeps a file `pending-restore-<id>` in `~/Library/Application Support/ageledger-uitests/`. It holds the scenario to restore (or `unknown`). If it says `unknown` the script refuses to start until you have checked the scenario by hand and deleted the file.
 - Output goes under `bin/ios-uitests/<stamp>/`; read `main.scrubbed.log`.
+- Further rows (I7b, I7c, I11 to I14, 8.1 (e), 8.3) are opt-in with `--row` and have not been run on a device yet. They never open Settings or change the scenario: you set it by hand and pass its label with `--scenario`. See docs/device-test-plan.md, section 7.7.
 
 All of the details (opt-in rows, the system sheet it stops on, what is recorded) are in device-test-plan.md section 7.7.
 

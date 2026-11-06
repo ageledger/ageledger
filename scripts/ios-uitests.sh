@@ -4,6 +4,8 @@
 #   scripts/ios-uitests.sh --udid <udid> --test <Class[/test]> [--app <path to the sample .app>] [--lock-timeout <seconds>]
 #                          [--assume-original-off]
 #   scripts/ios-uitests.sh --udid <udid> --row i18 [--app <path>] ...     (opt-in row I18: sandbox Off, request timeout, then Cancel)
+#   scripts/ios-uitests.sh --udid <udid> --row <i7b|i7c|i11|i12|i13|i14|i81e|i83> --scenario "<label>" [--app <path>] ...
+#                                                                         (opt-in rows, not run on a device yet; see below)
 #   scripts/ios-uitests.sh --udid <udid> --reinstall-probe --app <path to the sample .app>
 #
 # The sample must already be installed on the device; with --app it is installed first (preferred). --reinstall-probe
@@ -22,6 +24,11 @@
 # only a fallback for an OS version without that signal: when nothing reads as selected, the starting scenario is taken to be Off
 # (passed to the test as TEST_RUNNER_ASSUME_ORIGINAL=Off). Without the flag an unreadable starting scenario stops the run before any
 # change. Each row's result is compared with the expected range in the test report.
+# The opt-in rows i7b, i7c, i11, i12, i13, i14, i81e and i83 (device test plan sections 7.3 and 8) never open Settings and never change the
+# sandbox scenario. The person at the phone sets the scenario by hand first (Settings > Developer > Sandbox Apple Account > Age
+# Assurance) and passes its label with --scenario (it is handed to the test as TEST_RUNNER_ROW_SCENARIO); the script refuses a label the
+# row cannot use and prints which one to set. The test cannot read the scenario back, so it records it as declared. These runs print
+# NOTHING-CHANGED at the end, so no restore is needed, and they ask for no Touch ID.
 # The phone may ask for Touch ID once, when Settings opens the sandbox account: touch the sensor when the log shows
 # "ACTION NEEDED: touch the Touch ID sensor on the iPhone now (120 s)" (the test waits up to 120 s and never taps Cancel). If the
 # line does not show live, watch the phone. A failure-path restore from outside may ask once more.
@@ -61,7 +68,11 @@ WHO="ageledger-uitests"
 source "$ROOT/scripts/lib/sample-id.sh"
 SAMPLE_BUNDLE="$SAMPLE_ID"
 
-udid=""; test_id=""; app_path=""; lock_timeout=600; reinstall=0; assume_off=0; row_test=""
+udid=""; test_id=""; app_path=""; lock_timeout=600; reinstall=0; assume_off=0; row_test=""; row_name=""; scenario_label=""
+S_1315="User 13-15, significant change approved"
+S_1617="User 16-17, significant change declined"
+# The labels of Settings' Age Assurance page (the same list as SandboxSettings.scenarios in the UI test).
+ALL_SCENARIOS=("Off" "User under 13, significant change approved" "$S_1315" "$S_1617" "User 18+, age not confirmed, significant change not applicable" "User 18+, age confirmed, significant change not applicable" "User 18+, age confirmed, significant change applicable")
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --udid) udid="${2:-}"; shift 2 ;;
@@ -70,11 +81,15 @@ while [[ $# -gt 0 ]]; do
     --lock-timeout) lock_timeout="${2:-}"; shift 2 ;;
     --reinstall-probe) reinstall=1; shift ;;
     --assume-original-off) assume_off=1; shift ;;
+    --scenario) scenario_label="${2:-}"; shift 2 ;;
     --row)
       # Opt-in rows that are not part of the default run. i18 = device test plan row I18 (Off: request timeout, then Cancel).
       case "${2:-}" in
         i18) row_test="I18Tests/testI18" ;;
-        *) echo "--row must be: i18" >&2; exit 2 ;;
+        i7b|i7c|i11|i12|i13|i14|i81e|i83)
+          row_name="$2"
+          row_test="PlannedRowTests/test$(printf '%s' "$2" | sed 's/^i/I/')" ;;
+        *) echo "--row must be one of: i18 i7b i7c i11 i12 i13 i14 i81e i83" >&2; exit 2 ;;
       esac
       shift 2 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
@@ -84,12 +99,30 @@ if [[ -n "$row_test" ]]; then
   [[ -z "$test_id" ]] || { echo "use either --row or --test, not both" >&2; exit 2; }
   test_id="$row_test"
 fi
+if [[ -n "$row_name" ]]; then
+  # The scenario each row needs. The person sets it by hand; nothing here or in the test changes it.
+  case "$row_name" in
+    i7b) allowed_scenarios=("$S_1315") ;;
+    i7c) allowed_scenarios=("$S_1315" "$S_1617") ;;
+    i11|i81e|i83) allowed_scenarios=("${ALL_SCENARIOS[@]:1}") ;;   # anything except Off
+    *) allowed_scenarios=("${ALL_SCENARIOS[@]}") ;;               # i12, i13, i14: any, one run per scenario
+  esac
+  ok=0
+  for label in "${allowed_scenarios[@]}"; do [[ "$label" == "$scenario_label" ]] && ok=1; done
+  if [[ $ok -ne 1 ]]; then
+    echo "row $row_name needs --scenario \"<label>\" with the scenario already set by hand on the phone; the test does not change it. Allowed:" >&2
+    printf '  %s\n' "${allowed_scenarios[@]}" >&2
+    exit 2
+  fi
+elif [[ -n "$scenario_label" ]]; then
+  echo "--scenario is only for the opt-in rows i7b, i7c, i11, i12, i13, i14, i81e and i83" >&2; exit 2
+fi
 [[ "$lock_timeout" =~ ^[0-9]+$ ]] || { echo "--lock-timeout must be a number of seconds" >&2; exit 2; }
 if [[ $reinstall -eq 1 ]]; then
   [[ -n "$app_path" ]] || { echo "--reinstall-probe needs --app" >&2; exit 2; }
   test_id="ReinstallProbeTests/testReinstallProbe"
 fi
-[[ -n "$udid" && -n "$test_id" ]] || { echo "usage: $0 --udid <udid> (--test <Class[/test]> | --row i18) [--app <path>] [--lock-timeout <seconds>]" >&2; exit 2; }
+[[ -n "$udid" && -n "$test_id" ]] || { echo "usage: $0 --udid <udid> (--test <Class[/test]> | --row <row> [--scenario "<label>"]) [--app <path>] [--lock-timeout <seconds>]" >&2; exit 2; }
 [[ -z "$app_path" || -d "$app_path" ]] || { echo "--app must be an .app directory" >&2; exit 2; }
 
 # Allowlist: only devices listed in the untracked file.
@@ -197,7 +230,7 @@ PY='
 import json, os, re, sys
 mode, root, udid = sys.argv[1:4]
 devname = os.environ.get("AGELEDGER_SCAN_NAME", "")   # by environment, not argv, so it is not visible in ps
-ALLOW = ("exploration-report", "i18-report", "sheet-findings-first", "sample-with-sheet", "original-scenario", "restore-report", "reinstall-probe", "settings-alert", "settings-structure", "sample-tree")
+ALLOW = ("exploration-report", "i18-report", "rows-report", "sheet-findings-first", "sample-with-sheet", "original-scenario", "restore-report", "reinstall-probe", "settings-alert", "settings-structure", "sample-tree")
 manifest = os.path.join(root, "manifest.json")
 kept = []
 if os.path.exists(manifest):
@@ -239,7 +272,7 @@ if mode == "original":
 else:
     if not kept:
         print("no allowed attachments exported")
-    for key in ("exploration-report", "i18-report", "reinstall-probe"):
+    for key in ("exploration-report", "i18-report", "rows-report", "reinstall-probe"):
         d = load(key)
         if not isinstance(d, dict):
             continue
@@ -256,7 +289,13 @@ else:
                                   "sheet=" + str(r.get("sheetSeen")),
                                   "verdict=" + r.get("verdict", "?"), r.get("note") or ""]))
                 continue
-            print(" | ".join([r.get("row", ""), r.get("scenario", ""), "sheet=" + str(r.get("sheetSeen")),
+            if "Observed" in res:                   # rows i12 to i14: the value the call gave, recorded
+                print(" | ".join([r.get("row", ""), r.get("scenario", "") + " (declared, not read back)", "observed=" + res["Observed"],
+                                  "sheet=" + str(r.get("sheetSeen")), "verdict=" + r.get("verdict", "?"), r.get("note") or ""]))
+                continue
+            print(" | ".join([r.get("row", ""), r.get("scenario", "") + (" (declared, not read back)" if key == "rows-report" else ""),
+                              "sheet=" + str(r.get("sheetSeen")),
+                              "outcome=" + res.get("Outcome", "-"), "error=" + res.get("Error", "-"),
                               "state=" + res.get("State", "?"), "bucket=" + res.get("Bucket", "?"),
                               "decision=" + res.get("Decision", "?"), "logged=" + res.get("Logged", "?"),
                               "verdict=" + r.get("verdict", "?"), "check=" + str(r.get("check")) + " (expected " + str(r.get("expected")) + ")",
@@ -277,7 +316,7 @@ else:
                   *(["| labels =", step["labels"]] if step.get("labels") else []))
 d = load("original-scenario")                   # facts for the script, next to the attachments folder
 restored = None
-for key in ("exploration-report", "i18-report", "reinstall-probe"):
+for key in ("exploration-report", "i18-report", "rows-report", "reinstall-probe"):
     r = load(key)
     if isinstance(r, dict):
         restored = r.get("restored")
@@ -420,7 +459,13 @@ fi
 # from the run's attachments, whether a restore from outside is needed.
 XENV=()
 if [[ $assume_off -eq 1 ]]; then XENV=("TEST_RUNNER_ASSUME_ORIGINAL=Off"); fi
-echo "If the iPhone asks for Touch ID, touch the sensor (the test waits up to 120 s and never taps Cancel)."
+if [[ -n "$row_name" ]]; then
+  XENV+=("TEST_RUNNER_ROW_SCENARIO=$scenario_label")
+  echo "Row $row_name: Age Assurance must already be set to \"$scenario_label\" on the phone (by hand); the test does not read or change it."
+  echo "Leave the phone unlocked and untouched during the run; if an Apple sheet appears, leave it alone (the test never answers it)."
+else
+  echo "If the iPhone asks for Touch ID, touch the sensor (the test waits up to 120 s and never taps Cancel)."
+fi
 main_started=1
 printf 'unknown\n' > "$pending"   # replaced by the scenario label as soon as the test prints it
 status=0

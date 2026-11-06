@@ -86,10 +86,10 @@ struct ExplorationReport: Codable {
 
 /// Which of the sample, Settings and SpringBoard report being in the foreground, and their state codes. Bundle ids of system apps and
 /// the sample only; nothing about the person.
-func foregroundSummary(_ sample: SampleApp) -> String {
+func foregroundSummary(_ sample: SampleApp, includeSettings: Bool = true) -> String {
     let settings = XCUIApplication(bundleIdentifier: SandboxSettings.bundleId)
     let springboard = XCUIApplication(bundleIdentifier: SheetProbe.springboard)
-    let apps = [("sample", sample.app), ("settings", settings), ("springboard", springboard)]
+    let apps = [("sample", sample.app), ("settings", settings), ("springboard", springboard)].filter { includeSettings || $0.0 != "settings" }
     return apps.map { "\($0.0)=\($0.1.state.rawValue)" }.joined(separator: " ") + " (4 = foreground)"
 }
 
@@ -117,14 +117,40 @@ func attachSampleScreenshot(_ test: XCTestCase, _ sample: SampleApp, name: Strin
     return nil
 }
 
+/// What an Evaluate row is compared with. A mismatch is a finding, never a failure.
+enum Expectation {
+    /// The table in expectedOutcome(for:) for the scenario (gates 13/16/18, default policy).
+    case table
+    /// Nothing is compared: Apple decides the value and it is only recorded.
+    case record
+    /// An expected bucket and decision named by the row.
+    case fixed(bucket: String, decision: String)
+}
+
 /// Evaluates once in a fresh sample process and records whether a sheet appeared. `answer` is tapped if one shows.
+/// `setup` runs after the relaunch and before Evaluate (nothing is in flight and no sheet can be up then, so it may scroll and pick);
+/// it returns notes for the row, and a note starting with "unknown:" also makes the row "unknown". With `relaunch` false the sample's
+/// current process is used as it is (the caller has scrolled Evaluate into view). `touchSettings` false keeps the row from querying
+/// the Settings app at all. `terminate` false leaves the sample running for a following step.
 func evaluateRow(_ test: XCTestCase, _ sample: SampleApp, row: String, scenario: String, answer: String?,
-                 verdict: String = "recorded", screenshotName: String? = nil) throws -> ExplorationRow {
-    sample.relaunch()
+                 verdict: String = "recorded", screenshotName: String? = nil, expectation: Expectation = .table,
+                 relaunch: Bool = true, setup: ((SampleApp) throws -> [String])? = nil, touchSettings: Bool = true,
+                 terminate: Bool = true) throws -> ExplorationRow {
     var notes: [String] = []
     var verdict = verdict
-    // A newer sample keeps its request timeout across relaunches; the age-scenario rows must run without one.
-    if let cleared = sample.ensureNoTimeout(), !cleared { notes.append("request timeout could not be set to None"); verdict = "unknown" }
+    var stale: String?
+    if relaunch {
+        sample.relaunch()
+        // A newer sample keeps its request timeout across relaunches; the age-scenario rows must run without one.
+        if let cleared = sample.ensureNoTimeout(), !cleared { notes.append("request timeout could not be set to None"); verdict = "unknown" }
+        if let setup {
+            for note in try setup(sample) {
+                if note.hasPrefix("unknown:") { verdict = "unknown"; notes.append(String(note.dropFirst("unknown:".count)).trimmingCharacters(in: .whitespaces)) } else { notes.append(note) }
+            }
+        }
+    } else {
+        stale = sample.resultText // an older result must not be taken for this one
+    }
     try sample.tapEvaluate()
     let probe = SheetProbe.look(timeout: 10)
     if probe.seen {
@@ -138,28 +164,34 @@ func evaluateRow(_ test: XCTestCase, _ sample: SampleApp, row: String, scenario:
             notes.append("sheet left unanswered"); verdict = "unknown"
         }
     }
-    var text = sample.waitForResult(timeout: 20)
+    var text = sample.waitForResult(timeout: 20, differentFrom: stale)
     var emptyResult = false
     if text.isEmpty {
         // Whatever the app shows is recorded: wait longer and note what is on screen and which app is in the foreground (no screenshot).
-        text = sample.waitForResult(timeout: 40)
+        text = sample.waitForResult(timeout: 40, differentFrom: stale)
         if text.isEmpty {
             emptyResult = true
             let late = SheetProbe.look(timeout: 3)
-            notes.append("foreground when the result was missing: \(foregroundSummary(sample))")
-            SandboxSettings.noteSystemSheets("system sheet while the result was missing")
+            notes.append("foreground when the result was missing: \(foregroundSummary(sample, includeSettings: touchSettings))")
+            if touchSettings { SandboxSettings.noteSystemSheets("system sheet while the result was missing") }
             notes.append(late.findings.isEmpty ? "no result label after 60 s; nothing found on screen"
                                                : "no result label after 60 s; something is on screen: \(late.container ?? "?") in \(late.process ?? "?")")
             verdict = "unknown"
         }
     }
     let status = sample.statusText
-    sample.app.terminate() // so a lingering sheet cannot block the next Settings step; nothing is tapped to dismiss it
+    if terminate { sample.app.terminate() } // so a lingering sheet cannot block the next Settings step; nothing is tapped to dismiss it
     var result = SampleApp.parse(text)
     if emptyResult && !status.isEmpty { result["Status"] = status } // the app's own status line, e.g. "Service built (enabled=True)."
     var expected: String?
     var check = "not-checked"
-    if let want = expectedOutcome(for: scenario) {
+    let want: (bucket: String, decision: String)?
+    switch expectation {
+    case .table: want = expectedOutcome(for: scenario)
+    case .record: want = nil
+    case .fixed(let bucket, let decision): want = (bucket, decision)
+    }
+    if let want {
         expected = "\(want.bucket) / \(want.decision)"
         // An empty or unparsed result is not a mismatch: there was nothing to compare.
         if !emptyResult, result["Bucket"] != nil || result["Decision"] != nil {
