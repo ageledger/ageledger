@@ -15,7 +15,7 @@ dotnet test tests/Ageledger.Tests -p:CoreOnly=true   # quick, no mobile workload
 dotnet build                                         # all targets (needs the MAUI workloads and Xcode)
 ```
 
-The public API baseline (`PublicAPI.Unshipped.txt`) is per target: a `CoreOnly` build checks only the `net10.0` baseline, and the Android and iOS baselines (`src/Ageledger/PublicAPI/`) are checked by the full build and by CI.
+The public API baseline (`PublicAPI.Shipped.txt`, with `PublicAPI.Unshipped.txt` for changes since the last release) is per target: a `CoreOnly` build checks only the `net10.0` baseline, and the Android and iOS baselines (`src/Ageledger/PublicAPI/`) are checked by the full build and by CI.
 
 ## Releasing
 

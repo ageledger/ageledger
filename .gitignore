@@ -14,3 +14,7 @@ scripts/sample-id.local
 # UI-test project is generated; signing values stay local
 tests/ios-device-uitests/*.xcodeproj/
 tests/ios-device-uitests/signing.local
+
+# Android signing keys
+*.keystore
+*.jks
