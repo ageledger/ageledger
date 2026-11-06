@@ -19,7 +19,8 @@ fi
 echo "scenario lists equal"
 
 # The usage line prints without a device (it exits before the allowlist, the lock and any xcodebuild).
-if ! "$here/../../scripts/ios-uitests.sh" --row i7b --scenario "User 13-15, significant change approved" 2>&1 | grep -q '^usage:'; then
+usage_out="$("$here/../../scripts/ios-uitests.sh" --row i7b --scenario "User 13-15, significant change approved" 2>&1 || true)"
+if ! grep -q '^usage:' <<<"$usage_out"; then
   echo "FAIL: scripts/ios-uitests.sh did not print its usage line" >&2
   exit 1
 fi
