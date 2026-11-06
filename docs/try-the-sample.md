@@ -8,7 +8,7 @@ Links to Apple and Google pages were checked on 2026-10-27 (see the list at the 
 
 ## 0. Before you start
 
-Android only? Skip to section 8.
+Android only? Skip to section 8 (the package name is `com.ageledger.sample` unless you set your own as in section 2).
 
 - You will build the sample from a clone of this repository, with your own bundle ID (section 2) and your own Apple signing (section 3). The identifiers this project uses are registered to its own Apple developer team, and Apple does not let another team register the same ones.
 - Placeholders used below: `com.example.agesample` (your bundle ID), `YOUR_TEAM_ID`, `<IPHONE_UDID>`, `<PROFILE_UUID>`. Keep real values out of anything you commit.

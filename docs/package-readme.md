@@ -16,7 +16,7 @@ This package supplies a platform signal and a log. It does not make an app compl
 dotnet add package Ageledger --prerelease
 ```
 
-Then register it in a MAUI app (`using Ageledger;`; `Enabled` is false until you set it):
+Then register it in a MAUI app (`Enabled` is false until you set it; `AddAgeledger` is in the `Microsoft.Extensions.DependencyInjection` namespace, so it needs no extra using):
 
 ```csharp
 builder.Services.AddAgeledger(o =>
@@ -26,12 +26,15 @@ builder.Services.AddAgeledger(o =>
     o.RuleId = "gate-v1";
     o.RequestTimeout = TimeSpan.FromMinutes(2);   // Apple's sheet and Google's consent screen can wait indefinitely
 });
+#if ANDROID
+builder.Services.AddAgeledgerActivity(() => Microsoft.Maui.ApplicationModel.Platform.CurrentActivity);
+#endif
 ```
 
 Resolve `AgeSignalsService` from the container and `await service.EvaluateAsync()` once a page is showing. The full quick start, the options and the decision each state gives are in the [README](https://github.com/ageledger/ageledger/blob/main/README.md).
 
-- **iOS:** the Declared Age Range capability on the App ID, a profile that grants it, and the entitlement `com.apple.developer.declared-age-range`. The package installs on iOS 15.0 and later, but the platform signal exists from iOS 26.0; below that the service reports `Unavailable` / `NotAvailable`.
-- **Android:** API 23 or later with the Play Store and Play Services. A sideloaded debug build returned `NotShared` in the project's own run (one phone); real age ranges were not observed.
+- **iOS:** the Declared Age Range capability on the App ID, a profile that grants it, and the entitlement `com.apple.developer.declared-age-range` in an `Entitlements.plist` that the app's `.csproj` points to with `<CodesignEntitlements>` for device builds only (the README shows the property group). An app built with the iOS 27.1 SDK crashed at launch without UIScene adoption on iOS 27.0.1 (observed with the sample; see the README). The package installs on iOS 15.0 and later, but the platform signal exists from iOS 26.0; below that the service reports `Unavailable` / `NotAvailable`.
+- **Android:** API 23 or later with the Play Store and Play Services. A sideloaded debug build returned `NotShared` in the project's own run (one phone); real age ranges were not observed. `AddAgeledgerActivity` is required: with the service enabled and no activity registered, creating the service throws `InvalidOperationException`.
 
 For tests, add `Ageledger.Testing` to a test project only, on the same version: `dotnet add package Ageledger.Testing --prerelease`.
 

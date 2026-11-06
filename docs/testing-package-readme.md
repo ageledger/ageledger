@@ -18,6 +18,7 @@ AgeSignalsEvaluation e = await service.EvaluateAsync();
 The Android fake is used the same way:
 
 ```csharp
+var options = new AgeSignalsOptions { Enabled = true, AppVersion = "1.0.0", RuleId = "gate-v1" };
 var fake = new FakeAndroidAgeSignalsBackend();
 fake.SetNextAgeSignalsResult(13, 15);   // lower and upper bound
 var service = new AgeSignalsService(options, new AndroidAgeSignalsProvider(fake));

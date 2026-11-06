@@ -36,7 +36,7 @@ using Ageledger;
 builder.Services.AddAgeledger(o =>
 {
     o.Enabled = true;
-    o.AgeGates = [13, 16, 18];                     // Apple only; Android ignores AgeGates
+    o.AgeGates = [13, 16, 18];                     // Apple only: not sent to Google, but still validated (an invalid list throws on Android too)
     o.AppVersion = "1.4.2";                        // your app's version, "1.4.2" or "1.4.2-beta1"; no build suffix such as "(57)"
     o.RuleId = "gate-v1";                          // your own label for the rule in force
     o.RequestTimeout = TimeSpan.FromMinutes(2);    // see "Timeouts and cancellation" below
@@ -95,7 +95,7 @@ public class AgePage : ContentPage
 }
 ```
 
-The page has a constructor parameter, so it must be created by the container (a Shell route or `ContentTemplate` entry, or `IServiceProvider.GetRequiredService<AgePage>()`), not with `new AgePage()`. Call `EvaluateAsync` only once a page is showing, as `OnAppearing` does here: on iOS a call made before a window scene exists is expected to report `Error` / `NoPresenter` (not run at launch; see Unverified). The snippet leaves out error handling for brevity: `EvaluateAsync` throws on a cancelled token and if your own `SharedRangePolicy` throws (see "Timeouts and cancellation" and "Your own policy code" below). The page snippet uses MAUI types and was checked by reading only.
+The page has a constructor parameter, so it must be created by the container (a Shell route or `ContentTemplate` entry, or `IServiceProvider.GetRequiredService<AgePage>()`), not with `new AgePage()`. Call `EvaluateAsync` only once a page is showing, as `OnAppearing` does here: on iOS a call made before a window scene exists is expected to report `Error` / `NoPresenter` (not run at launch; see Unverified). The snippet leaves out error handling for brevity: `EvaluateAsync` throws on a cancelled token, if your own `SharedRangePolicy` throws, and with `InvalidOperationException` if it returns a value that is not a defined `AgeDecision` (see "Timeouts and cancellation" and "Your own policy code" below). The page snippet uses MAUI types and was checked by reading only.
 
 **3. Android:** API 23+ and the Play Store/Play Services on the device (see Requirements below). `AddAgeledgerActivity` above supplies the foreground activity Google's consent screen needs.
 
@@ -117,14 +117,14 @@ The page has a constructor parameter, so it must be created by the container (a 
   </PropertyGroup>
   ```
 
-- Adopt the UIScene life cycle. Built with the iOS 27 SDK, an app without it did not launch on an iPhone running iOS 27.0.1 (observed with the sample; Apple's TN3187 is quoted under Requirements below). In MAUI that is a `UIApplicationSceneManifest` in `Info.plist` and a scene delegate, a subclass of `MauiUISceneDelegate` registered as `SceneDelegate` (`samples/AgeledgerSample/Platforms/iOS` has both).
+- Adopt the UIScene life cycle. Built with the iOS 27.1 SDK, the sample without it crashed at launch on an iPhone running iOS 27.0.1 (observed); Apple's TN3187 is the general source and is quoted under Requirements below. In MAUI that is a `UIApplicationSceneManifest` in `Info.plist` and a scene delegate, a subclass of `MauiUISceneDelegate` registered as `SceneDelegate` (`samples/AgeledgerSample/Platforms/iOS` has both).
 
 **5. What you will see while testing:**
 
 - A sideloaded Android debug build: the real Play manager returned `NotShared` (observed on one Android 13 phone), which the default settings turn into `NotApplicable`. Real age ranges need a licence tester or a supported state, which has not been observed here.
 - The iOS Simulator: the real Apple backend returned `Unavailable` / `NotAvailable` (observed).
 - Real values on an iPhone come from Apple's sandbox, which needs a Sandbox Apple Account and Developer Mode; [docs/try-the-sample.md](docs/try-the-sample.md) walks through it with the sample app.
-- Below iOS 26 the service reports `Unavailable` / `NotAvailable`.
+- Below iOS 26 the service reports `Unavailable` / `NotAvailable` (from the code; not run on a device below iOS 26).
 
 More: the options in full, building the service by hand, timeouts and testing are below; the sample app is described under "Sample app".
 
@@ -172,7 +172,7 @@ Defaults of `AgeSignalsOptions` (checked against `src/Ageledger/Model/AgeSignals
 | Option | Default |
 |---|---|
 | `Enabled` | `false` |
-| `AgeGates` | `[13, 16, 18]` (Apple only; Android ignores it) |
+| `AgeGates` | `[13, 16, 18]` (Apple only: not sent to Google, but still validated whenever `Enabled` is true; an invalid list throws on Android too) |
 | `MinimumAge` / `AdultAge` | `13` / `18` |
 | `NoSignalDecision` | `NotApplicable` |
 | `VerificationRequiredDecision` | `Blocked` |
@@ -202,7 +202,7 @@ using Ageledger;
 var options = new AgeSignalsOptions
 {
     Enabled = true,                 // opt in
-    AgeGates = [13, 16, 18],        // Apple only (1-3 ascending ages, first at least 2, each 2 or more above the last). Android ignores AgeGates: Google returns its own age ranges.
+    AgeGates = [13, 16, 18],        // Apple only (1-3 ascending ages, first at least 2, each 2 or more above the last). Not sent to Google (Google returns its own age ranges), but still validated whenever Enabled is true: an invalid list throws on Android too.
     AppVersion = "1.4.2",           // "1.4.2" or "1.4.2-beta1"; no build suffix such as "(57)"
     RuleId = "gate-v1",             // your own label for the rule in force; never a person identifier or an age group
     RequestTimeout = TimeSpan.FromMinutes(2),   // see "Timeouts and cancellation" below
@@ -383,17 +383,17 @@ iOS (swiftinterface in the iPhoneOS 27.1 SDK, Xcode 27.1): `AgeRangeService.shar
 
 ## US state laws that prompted this library (background only; not legal advice; not a statement that it meets them)
 
-From desk research checked 2026-10-25 (primary sources are the enrolled bills; details and caveats in `docs/retention.md`):
+Statute texts checked 2026-10-25; Texas court events checked 2026-11-06 (sources below the table). Primary sources for the texts are the enrolled bills; details and caveats in `docs/retention.md`:
 
 | Law | Operative date (per the source read) | Note |
 |---|---|---|
-| Texas SB 2420 (App Store Accountability Act) | Text: 2026-01-01 (Sec. 3). A federal district court enjoined it on 2025-12-23; the Fifth Circuit stayed that injunction pending appeal on 2026-06-04, and the Supreme Court denied an application to vacate the stay on 2026-07-06 (No. 25A1390). The appeal was pending when checked (2026-11-06). | Developer duties in Bus. & Com. Code ch. 121. Litigation is ongoing and may change this. |
+| Texas SB 2420 (App Store Accountability Act) | Text: 2026-01-01 (Sec. 3). A federal district court (W.D. Tex., in two suits) preliminarily enjoined it on 2025-12-23; the Fifth Circuit stayed that injunction pending appeal on 2026-06-04, and the Supreme Court denied an application to vacate the stay on 2026-07-06 (No. 25A1390). The appeal had not been decided when the Supreme Court denied the application (2026-07-06); its later status was not checked. | Developer duties in Bus. & Com. Code ch. 121. Litigation may change this. |
 | California AB 1043 (Digital Age Assurance Act) | 2027-01-01 | Developers request an age-bracket signal; read from code-section mirrors, not the official chaptered text |
 | Alabama HB 161 | 2027-01-01 | Enrolled text read |
-| Utah ch. 13-76 as amended by H.B. 498 | 2027-05-06 | Private right of action only. The industry challenge to the original law was dismissed on 2026-04-21 after the amendment (law-firm summaries, checked 2026-11-06) |
-| Louisiana Act 185 (HB 977 of 2026) | 2027-07-01 | Replaces Act 481, which never took effect. No lawsuit found (checked 2026-11-06) |
+| Utah ch. 13-76 as amended by H.B. 498 | 2027-05-06 | Private right of action only |
+| Louisiana Act 185 (HB 977 of 2026) | 2027-07-01 | Replaces Act 481, which never took effect |
 
-Texas court events (checked 2026-11-06): the Supreme Court docket, No. 25A1390, <https://www.supremecourt.gov/search.aspx?filename=/docket/docketfiles/html/public/25a1390.html> (primary); and CCIA's application to vacate the stay, <https://ccianet.org/wp-content/uploads/securepdfs/2026/06/2026-06-10_LITIG_CCIA-v.-Paxton_SCOTUS-App-to-Vacate-Stay.pdf> (a party filing; the source for the 2025-12-23 and 2026-06-04 dates).
+Texas court events (checked 2026-11-06): the Supreme Court docket, No. 25A1390, <https://www.supremecourt.gov/search.aspx?filename=/docket/docketfiles/html/public/25a1390.html> (primary); and CCIA's application to vacate the stay, <https://www.supremecourt.gov/DocketPDF/25/25A1390/413071/20260610230907810_CCIA%20Emergency%20Application%20for%20Vacatur.pdf> (a party filing, hosted by the Supreme Court; the source for the 2025-12-23 and 2026-06-04 dates; a second copy is on CCIA's site, <https://ccianet.org/wp-content/uploads/securepdfs/2026/06/2026-06-10_LITIG_CCIA-v.-Paxton_SCOTUS-App-to-Vacate-Stay.pdf>).
 
 Retention of age-category data, and what the log setting above does and does not cover: `docs/retention.md`.
 
@@ -444,7 +444,7 @@ Pick whichever fits your app. This comparison was checked on 2026-10-30; the oth
 - Not exercised in that release: finishing a half-finished release by hand (the "half way" route in CONTRIBUTING); the "already exists" message of the push script, which keys on the `Response status code does not indicate success: 409 (...)` text that comes from the NuGet.Client and .NET runtime sources and has not been observed from nuget.org; and any re-run of the release workflow (including whether a re-run attempt can upload an artifact under the same name). The release has no automatic recovery. Pushing a `.snupkg` on its own by hand, and whether a "Push only new package versions" key is accepted for it, has not been tried.
 - Whether any released .NET iOS workload copies these dSYMs into an app's archive.
 - No crash inside the Swift wrapper has been symbolicated with the shipped dSYMs; only `atos` on the dSYM against a wrapper function was checked.
-- iOS: `RequestTimeout` with the sandbox Off scenario has been observed once, on one iPhone running iOS 27.0.1 with the Apple sandbox account (State Error, Error Timeout at about 15.1 s, 2026-10-27). Cancellation with Off has not been run on a device: the Cancel button was off screen in the UI test, and the button's new position has not been run.
+- iOS: `RequestTimeout` with the sandbox Off scenario has been observed once, on one iPhone running iOS 27.0.1 with the Apple sandbox account (State Error, Error Timeout at about 15.1 s, 2026-10-27; a second I18 run on 2026-10-30 again ended with Timeout at about 15.2 s, with the Cancel pass not exercised because the UI test did not find the `cancel` control). Cancellation with Off has not been run on a device: the Cancel button was off screen in the UI test, and the button's new position has not been run.
 - On an iPhone only the sandbox scenarios listed above ran (one device, one OS version, gates 13/16/18). Not run: answering or declining a consent sheet (none appeared in the sandbox), `IsEligibleForAgeFeatures` and the 26.4 regulatory calls, cancellation with a real sheet, the sandbox "Off" scenario with no timeout (with Off and no timeout, Evaluate did not return within 60 seconds in all three runs; in the second run (2026-10-26) a system sheet "Age-Appropriate Experiences in Apps" was up in Settings, in the third (2026-10-27) none was and the sample was in the foreground; the cause is not confirmed; with `RequestTimeout` 15 s it ended with a Timeout error once, see the I18 row in the device test results), and any real (non-sandbox) account. The earlier iOS 26.5 Simulator results predate the sample's scene adoption. On 2026-10-27 a headless iOS 27.0 Simulator run launched the app, passed the self-test 20/20 and got Unavailable / NotAvailable from the real Apple backend through the internal binding, with no crash; no real age range or sheet answer was observed there. The library logic is otherwise covered by the fakes. On Android the real Play manager has not returned a real age signal (a licence tester or supported state); only the sideloaded `NotShared` path was observed. The Simulator's flow dismissed itself about 90 ms after being presented; why is not confirmed.
 - Whether a `net10.0-android` app really gets a usable `Activity` through `Platform.CurrentActivity` for `AgeSharingConsentWrapperActivity` in all lifecycle states.
 - iOS: whether cancelling or timing out the token while Apple's sheet is up behaves sensibly (the wait stops; the sheet stays until the person dismisses it). A token already cancelled when the main-thread work starts skips the sheet; this is compiled, not run.
@@ -458,7 +458,7 @@ Pick whichever fits your app. This comparison was checked on 2026-10-30; the oth
 - iOS: the xcframework has arm64 slices only (device and simulator); there is no x86_64 simulator slice, so Intel Macs cannot run the simulator build.
 - How Apple reports bounds when the lower gate is not crossed (`lowerBound` nil): treated as 0 in the label.
 - That the dynamic framework is embedded and signed correctly in an app bundle on a device. The sample app builds for the Simulator and `Frameworks/AgeledgerNative.framework` is in the bundle with no `NativeReference` in the app (also when the app consumes a locally packed `Ageledger` nupkg, which carries the binding assembly and its `.resources.zip`); device builds with the earlier framework (0.1.0-preview.2 and before) ran on an iPhone (see Verified on devices), but a device build with the newly ad-hoc-signed framework (after 0.1.0-preview.2) has not been run. The framework slices now carry a valid ad-hoc signature (checked with `codesign` on the packed package); the valid signature is in the release after 0.1.0-preview.2 (0.1.0-preview.1 and 0.1.0-preview.2 had a signature that did not match the contents). A Simulator app built with code signing turned off was killed at launch ("Code Signature Invalid") although the framework verified, because in that build the main binary and the .NET runtime libraries were not validly signed. In a default-signing Simulator build the bundle, main binary, framework and the two runtime libraries checked (libmonosgen-2.0, libSystem.Native) verified with `codesign -vv --strict`, and the app launched and was still running after 10 s (control run, 2026-10-30); in a device build the framework verified with the developer identity (not run on a device).
-- Texas civil-penalty amounts, the outcome of the Texas appeal (only the court events listed in the law table were checked), California AB 1856 status, Utah/Alabama signing dates, and the Play testing artifact's Maven coordinates.
+- Texas civil-penalty amounts, the Texas appeal's status after 2026-07-06 and any court status for the other laws (only the Texas events in the law table were checked), California AB 1856 status, Utah/Alabama signing dates, and the Play testing artifact's Maven coordinates.
 - Whether the default `NoSignal`/`VerificationRequired` decisions suit any particular law. They are placeholders.
 - The Xcode version an app needs to build with the NuGet package on iOS. Only building this repository from source (iOS 26.4 SDK or newer, and the Xcode 27.1 runs here) is established.
 
