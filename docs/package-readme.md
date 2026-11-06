@@ -16,6 +16,23 @@ This package supplies a platform signal and a log. It does not make an app compl
 dotnet add package Ageledger --prerelease
 ```
 
+Then register it in a MAUI app (`using Ageledger;`; `Enabled` is false until you set it):
+
+```csharp
+builder.Services.AddAgeledger(o =>
+{
+    o.Enabled = true;
+    o.AppVersion = "1.4.2";
+    o.RuleId = "gate-v1";
+    o.RequestTimeout = TimeSpan.FromMinutes(2);   // Apple's sheet and Google's consent screen can wait indefinitely
+});
+```
+
+Resolve `AgeSignalsService` from the container and `await service.EvaluateAsync()` once a page is showing. The full quick start, the options and the decision each state gives are in the [README](https://github.com/ageledger/ageledger/blob/main/README.md).
+
+- **iOS:** the Declared Age Range capability on the App ID, a profile that grants it, and the entitlement `com.apple.developer.declared-age-range`. The package installs on iOS 15.0 and later, but the platform signal exists from iOS 26.0; below that the service reports `Unavailable` / `NotAvailable`.
+- **Android:** API 23 or later with the Play Store and Play Services. A sideloaded debug build returned `NotShared` in the project's own run (one phone); real age ranges were not observed.
+
 For tests, add `Ageledger.Testing` to a test project only, on the same version: `dotnet add package Ageledger.Testing --prerelease`.
 
 ## Links

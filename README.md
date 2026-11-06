@@ -24,9 +24,140 @@ dotnet add package Ageledger.Testing --prerelease
 
 Keep `Ageledger` and `Ageledger.Testing` on the same version: `Ageledger.Testing` depends on exactly the `Ageledger` version it was built with.
 
+## Quick start (.NET MAUI)
+
+The library is off by default; this wires it up so an app can ask the platform once a page is showing. It is not a policy: what the app does with the answer is the app owner's decision (see "Options and the decision each state gives" below).
+
+**1. Register the service** in `MauiProgram.cs`:
+
+```csharp
+using Ageledger;
+
+builder.Services.AddAgeledger(o =>
+{
+    o.Enabled = true;
+    o.AgeGates = [13, 16, 18];                     // Apple only; Android ignores AgeGates
+    o.AppVersion = "1.4.2";                        // your app's version, "1.4.2" or "1.4.2-beta1"; no build suffix such as "(57)"
+    o.RuleId = "gate-v1";                          // your own label for the rule in force
+    o.RequestTimeout = TimeSpan.FromMinutes(2);    // see "Timeouts and cancellation" below
+});
+builder.Services.AddAgeledgerFileLog(Path.Combine(FileSystem.AppDataDirectory, "age-decisions.jsonl"));   // optional
+#if ANDROID
+builder.Services.AddAgeledgerActivity(() => Microsoft.Maui.ApplicationModel.Platform.CurrentActivity);
+#endif
+
+builder.Services.AddTransient<AgePage>();
+```
+
+After `builder.Build()` you can resolve the service once (`app.Services.GetRequiredService<AgeSignalsService>()`) to find a bad setting at start-up. Resolving does not ask the platform anything.
+
+**2. Use it from a page**, in its own file:
+
+```csharp
+// AgePage.cs
+using Ageledger;
+
+public class AgePage : ContentPage
+{
+    private readonly AgeSignalsService _service;
+    private readonly Label _status = new() { Text = "Checking..." };
+    private bool _asked;
+
+    public AgePage(AgeSignalsService service)
+    {
+        _service = service;
+        Content = _status;
+    }
+
+    protected override async void OnAppearing()
+    {
+        base.OnAppearing();
+        if (_asked) return;          // each call can show a system sheet; ask once per page
+        _asked = true;
+
+        AgeSignalsEvaluation e = await _service.EvaluateAsync();
+        switch (e.Decision)
+        {
+            case AgeDecision.Allowed:
+                _status.Text = "Allowed";
+                break;
+            case AgeDecision.AllowedWithParentalConsent:
+                _status.Text = "Allowed with parental consent";
+                break;
+            case AgeDecision.Blocked:
+                _status.Text = "Blocked";
+                break;
+            case AgeDecision.NotApplicable:
+                _status.Text = "No age signal";   // the usual result where none exists; your app decides what to do
+                break;
+        }
+    }
+}
+```
+
+The page has a constructor parameter, so it must be created by the container (a Shell route or `ContentTemplate` entry, or `IServiceProvider.GetRequiredService<AgePage>()`), not with `new AgePage()`. Call `EvaluateAsync` only once a page is showing, as `OnAppearing` does here: on iOS a call made before a window scene exists is expected to report `Error` / `NoPresenter` (not run at launch; see Unverified). The snippet leaves out error handling for brevity: `EvaluateAsync` throws on a cancelled token and if your own `SharedRangePolicy` throws (see "Timeouts and cancellation" and "Your own policy code" below). The page snippet uses MAUI types and was checked by reading only.
+
+**3. Android:** API 23+ and the Play Store/Play Services on the device (see Requirements below). `AddAgeledgerActivity` above supplies the foreground activity Google's consent screen needs.
+
+**4. iOS setup** (a device build; the Simulator needs none of the account steps):
+
+- In your Apple developer account, turn on the **Declared Age Range** capability on the App ID and make a provisioning profile that includes it. The installed profile should show `com.apple.developer.declared-age-range`.
+- Add an `Entitlements.plist` with that key:
+
+  ```xml
+  <key>com.apple.developer.declared-age-range</key>
+  <true/>
+  ```
+
+- Point the project at it for device builds only, in the app's `.csproj`:
+
+  ```xml
+  <PropertyGroup Condition="$(TargetFramework.Contains('-ios')) and '$(RuntimeIdentifier)' != '' and !$(RuntimeIdentifier.StartsWith('iossimulator'))">
+    <CodesignEntitlements>Entitlements.plist</CodesignEntitlements>
+  </PropertyGroup>
+  ```
+
+- Adopt the UIScene life cycle. Built with the iOS 27 SDK, an app without it did not launch on an iPhone running iOS 27.0.1 (observed with the sample; Apple's TN3187 is quoted under Requirements below). In MAUI that is a `UIApplicationSceneManifest` in `Info.plist` and a scene delegate, a subclass of `MauiUISceneDelegate` registered as `SceneDelegate` (`samples/AgeledgerSample/Platforms/iOS` has both).
+
+**5. What you will see while testing:**
+
+- A sideloaded Android debug build: the real Play manager returned `NotShared` (observed on one Android 13 phone), which the default settings turn into `NotApplicable`. Real age ranges need a licence tester or a supported state, which has not been observed here.
+- The iOS Simulator: the real Apple backend returned `Unavailable` / `NotAvailable` (observed).
+- Real values on an iPhone come from Apple's sandbox, which needs a Sandbox Apple Account and Developer Mode; [docs/try-the-sample.md](docs/try-the-sample.md) walks through it with the sample app.
+- Below iOS 26 the service reports `Unavailable` / `NotAvailable`.
+
+More: the options in full, building the service by hand, timeouts and testing are below; the sample app is described under "Sample app".
+
+## Requirements for an app
+
+- **Android:** API 23+ and Play Store/Play Services.
+  - The library's Android target references `Xamarin.AndroidX.Lifecycle.LiveData.Core` 2.11.0.1, so an Android app on MAUI 10.0.20 needs no manual pin to avoid NU1107 (seen when an app referenced both MAUI 10.0.20 and the age-signals binding). That reference pins `Xamarin.AndroidX.Lifecycle.Common` to [2.11.0.1, 2.11.1); an app that needs a newer version can add its own higher reference.
+  - Restoring an Android app on MAUI 10.0.20 prints NU1608 warnings (Lifecycle Ktx, ViewModel and SavedState packages outside their dependency constraints). They appear because the AndroidX Lifecycle packages are raised above the 2.9.x range that MAUI's own packages declare; an app that does not want them can set `<NoWarn>NU1608</NoWarn>`.
+- **Mac Catalyst, Windows and plain net10.0:** the package's net10.0 assembly is used. There is no platform age signal there: with the service enabled and a provider from `AddAgeledger`, it reports `Unavailable` / `NotAvailable` (not run on those platforms; see Unverified).
+- **iOS:** iOS 15.0+ to install; below iOS 26 the service reports Unavailable / NotAvailable (the platform API starts at iOS 26.0, and the regulatory calls at 26.2 and 26.4).
+  - Building this repository from source (the Swift wrapper, `native/ios/build.sh`) needs the iOS 26.4 SDK or newer: the script and the Swift source fail the build otherwise, instead of producing a framework that always reports not available. An app that uses the NuGet package gets the prebuilt framework; the Xcode version an app needs to build with the package has not been established here (see Unverified).
+  - The app needs the **Declared Age Range** capability on its App ID, a provisioning profile that grants it, and the entitlement `com.apple.developer.declared-age-range` in `Entitlements.plist`:
+
+```xml
+<key>com.apple.developer.declared-age-range</key>
+<true/>
+```
+
+The plist takes effect only when the project points at it. The sample does this in its `.csproj` for device builds:
+
+```xml
+<PropertyGroup Condition="$(TargetFramework.Contains('-ios')) and '$(RuntimeIdentifier)' != '' and !$(RuntimeIdentifier.StartsWith('iossimulator'))">
+  <CodesignEntitlements>Entitlements.plist</CodesignEntitlements>
+</PropertyGroup>
+```
+
+The condition limits the entitlement to device builds (a runtime identifier that is not `iossimulator-*`) because an entitlement can only be signed in with a provisioning profile that grants it; the Simulator needs no entitlements or profile.
+
+Apple's technote [TN3187](https://developer.apple.com/documentation/technotes/tn3187-migrating-to-the-uikit-scene-based-life-cycle) (checked 2026-10-25) says that in the next major release after iOS 26 the UIScene life cycle is required when building with the latest SDK, otherwise the app won't launch. The host iOS app should therefore adopt scenes (`UIApplicationSceneManifest` in `Info.plist` and a scene delegate; in MAUI, a subclass of `MauiUISceneDelegate`, see Microsoft's [MAUI Window page](https://learn.microsoft.com/en-us/dotnet/maui/user-interface/controls/window?view=net-maui-10.0)). Observed here: the sample app, built with the iOS 27.1 SDK, crashed at launch on an iPhone running iOS 27.0.1 until it adopted scenes (`samples/AgeledgerSample/Platforms/iOS`).
+
 ## What this is not
 
-- **It does not make an app compliant with any law.** It supplies the platform's age signal and records what your app decided. Apple and Google both leave the compliance duty with the developer.
+- **It does not make an app compliant with any law.** It supplies the platform's age signal and records what your app decided. Apple's developer agreement and Declared Age Range pages say the developer is solely responsible for compliance with the laws that apply to the app, and Google's terms limit use of the signal to providing age-appropriate experiences in compliance with laws (sources, with the date checked, 2026-10-25: the platform terms table in [docs/retention.md](docs/retention.md)).
 - **It is not legal advice.** The law list below is background, not a reading of what binds your app.
 - The default decision policy is a placeholder. The app owner must set the real one (`SharedRangePolicy`, `NoSignalDecision`, `VerificationRequiredDecision`, `MinimumAge`, `AdultAge`).
 
@@ -34,13 +165,47 @@ Keep `Ageledger` and `Ageledger.Testing` on the same version: `Ageledger.Testing
 
 `AgeSignalsOptions.Enabled` is `false`. While it is false the service makes no platform call, shows no system sheet, writes no log and returns `AgeSignalsState.Disabled` / `AgeDecision.NotApplicable`. An app that references the library changes nothing until it opts in.
 
+## Options and the decision each state gives
+
+Defaults of `AgeSignalsOptions` (checked against `src/Ageledger/Model/AgeSignalsOptions.cs`):
+
+| Option | Default |
+|---|---|
+| `Enabled` | `false` |
+| `AgeGates` | `[13, 16, 18]` (Apple only; Android ignores it) |
+| `MinimumAge` / `AdultAge` | `13` / `18` |
+| `NoSignalDecision` | `NotApplicable` |
+| `VerificationRequiredDecision` | `Blocked` |
+| `SharedRangePolicy` | none (the younger-end rule below) |
+| `AgeBucketLogging` | `Exact` |
+| `RequestTimeout` | none (waits without limit) |
+| `AppVersion` / `RuleId` | `"0.0.0"` / `"unspecified"` (set your own) |
+
+Which state gives which decision:
+
+| State | Decision |
+|---|---|
+| `Disabled` | `NotApplicable` |
+| `Shared` with a known range | `SharedRangePolicy` if set, otherwise the default rule (see "Result model") |
+| `VerificationRequired` | `VerificationRequiredDecision` (default `Blocked`) |
+| Every other state: `Declined`, `NotShared`, `Unavailable`, `Error`, and `Shared` with no range | `NoSignalDecision` (default `NotApplicable`) |
+
+`NotApplicable` is the usual result wherever no age signal exists (a sideloaded Android build, the Simulator, an iPhone below iOS 26, a person who declines). The library does not decide what your app does then: that is the app owner's choice, and `NoSignalDecision` lets you pick a different value.
+
+## Configuring and constructing the service
+
+The Quick start uses `AddAgeledger`. This section has the options in full, building the service by hand, and the details of timeouts, dependency injection and testing.
+
 ```csharp
+using Ageledger;
+
 var options = new AgeSignalsOptions
 {
     Enabled = true,                 // opt in
-    AgeGates = [13, 16, 18],        // Apple gates (1-3 ascending ages, first at least 2, each 2 or more above the last). Google's bands are set in Play Console.
+    AgeGates = [13, 16, 18],        // Apple only (1-3 ascending ages, first at least 2, each 2 or more above the last). Android ignores AgeGates: Google returns its own age ranges.
     AppVersion = "1.4.2",           // "1.4.2" or "1.4.2-beta1"; no build suffix such as "(57)"
     RuleId = "gate-v1",             // your own label for the rule in force; never a person identifier or an age group
+    RequestTimeout = TimeSpan.FromMinutes(2),   // see "Timeouts and cancellation" below
 };
 // With Enabled = true, new AgeSignalsService(...) throws ArgumentException straight away if AppVersion, RuleId, AgeGates,
 // AgeBucketLogging, NoSignalDecision, VerificationRequiredDecision, MinimumAge, AdultAge or RequestTimeout is not acceptable (MinimumAge and
@@ -62,8 +227,8 @@ IAgeSignalsProvider provider = new NoAgeSignalsProvider();   // Mac Catalyst, Wi
 var log = new JsonFileDecisionLog(Path.Combine(FileSystem.AppDataDirectory, "age-decisions.jsonl"));
 var service = new AgeSignalsService(options, provider, log);
 
-AgeSignalsEvaluation e = await service.EvaluateAsync(cancellationToken);
-// e.Result.State, e.Result.Bucket (e.g. "13-15"), e.Decision (Allowed / AllowedWithParentalConsent / Blocked / NotApplicable),
+AgeSignalsEvaluation e = await service.EvaluateAsync();
+// e.Result.State, e.Result.Bucket.Label (e.g. "13-15"), e.Decision (Allowed / AllowedWithParentalConsent / Blocked / NotApplicable),
 // e.Logged (true only when a log is set and the entry was written; a log failure never throws from EvaluateAsync)
 ```
 
@@ -86,12 +251,15 @@ AgeSignalsEvaluation e = await service.EvaluateAsync(cancellationToken);
 
 ```csharp
 // MauiProgram.cs
+using Ageledger;
+
 builder.Services.AddAgeledger(o =>
 {
     o.Enabled = true;
     o.AgeGates = [13, 16, 18];
     o.AppVersion = "1.4.2";          // your app's version, "1.4.2" or "1.4.2-beta1"; no build suffix such as "(57)"
     o.RuleId = "gate-v1";
+    o.RequestTimeout = TimeSpan.FromMinutes(2);   // see "Timeouts and cancellation" above
 });
 builder.Services.AddAgeledgerFileLog(Path.Combine(FileSystem.AppDataDirectory, "age-decisions.jsonl"));   // optional
 #if ANDROID
@@ -99,12 +267,10 @@ builder.Services.AddAgeledgerFileLog(Path.Combine(FileSystem.AppDataDirectory, "
 builder.Services.AddAgeledgerActivity(() => Microsoft.Maui.ApplicationModel.Platform.CurrentActivity);
 #endif
 
-builder.Services.AddTransient<AgePage>();   // a page registered in the container gets the service injected
-
-public class AgePage(AgeSignalsService service) { /* await service.EvaluateAsync(); */ }
+builder.Services.AddTransient<AgePage>();   // a page registered in the container gets the service injected; AgePage is in the Quick start
 ```
 
-`Enabled` stays false unless your `configure` sets it. `AgeSignalsService` checks the options when it is first resolved, so resolve it once at start-up (for example `app.Services.GetRequiredService<AgeSignalsService>()`) to find a bad setting early instead of at first use. On Mac Catalyst, Windows and plain net10.0 the package's net10.0 assembly is used and `AddAgeledger` registers `NoAgeSignalsProvider`, which makes no platform call: an enabled service reports `Unavailable` / `NotAvailable` (platform `None`, decision `NoSignalDecision`). The package depends on `Microsoft.Extensions.DependencyInjection.Abstractions` 10.0.0, which a MAUI 10 or ASP.NET Core app already has.
+`Enabled` stays false unless your `configure` sets it. `AgeSignalsService` checks the options when it is first resolved, so resolve it once at start-up (for example `app.Services.GetRequiredService<AgeSignalsService>()`) to find a bad setting early instead of at first use. Resolving is not evaluating: call `EvaluateAsync` only once a page is showing. On iOS, a call made before a window scene exists is expected to report `Error` / `NoPresenter` (that case has not been run; see Unverified). On Mac Catalyst, Windows and plain net10.0 the package's net10.0 assembly is used and `AddAgeledger` registers `NoAgeSignalsProvider`, which makes no platform call: an enabled service reports `Unavailable` / `NotAvailable` (platform `None`, decision `NoSignalDecision`). The package depends on `Microsoft.Extensions.DependencyInjection.Abstractions` 10.0.0, which a MAUI 10 or ASP.NET Core app already has.
 
 iOS only, guarded by OS version inside the library (returns `null` / `Unsupported` on older iOS):
 
@@ -131,7 +297,22 @@ AgeSignalsEvaluation e = await service.EvaluateAsync();
 // and with the placeholder policy e.Decision is AgeDecision.AllowedWithParentalConsent.
 ```
 
-**Public API.** The public surface is recorded in `PublicAPI.Unshipped.txt` files next to each project (platform-specific types in `PublicAPI/android` and `PublicAPI/ios`); the build fails if a public member is added, removed or has its signature changed without updating them (a `CoreOnly` build checks only the `net10.0` file; see CONTRIBUTING for the per-target note). The backends, providers, `IDecisionLog` implementations and the neutral model are public; the code maps, the decision policy function and the field validators are internal. Until 1.0, public interfaces and records may gain members; keep `Ageledger` and `Ageledger.Testing` on the same version. `GoogleAgeSignalsBackend`'s constructor exposes the Play binding's `IAgeSignalsManager`, so a breaking update of that binding is a breaking change here. The iOS binding assembly (`Ageledger.IosBinding`, bundled in the package) is an implementation detail and not for direct use: its bound types are internal and only `Ageledger` can see them.
+The Android fake works the same way (`FakeAndroidAgeSignalsBackend` with `AndroidAgeSignalsProvider`; its `SetNext...` methods choose what Google's side returns):
+
+```csharp
+using Ageledger;
+using Ageledger.Testing;
+
+var options = new AgeSignalsOptions { Enabled = true, AppVersion = "1.0.0", RuleId = "gate-v1" };
+var fake = new FakeAndroidAgeSignalsBackend();
+fake.SetNextAgeSignalsResult(13, 15);   // lower and upper bound; the access call defaults to Shared
+var service = new AgeSignalsService(options, new AndroidAgeSignalsProvider(fake));
+
+AgeSignalsEvaluation e = await service.EvaluateAsync();
+// e.Result.State is AgeSignalsState.Shared, e.Result.Bucket.Label is "13-15", e.Decision is AgeDecision.AllowedWithParentalConsent.
+```
+
+**Public API.** The public surface is recorded in `PublicAPI.Shipped.txt` files next to each project (platform-specific types in `PublicAPI/android` and `PublicAPI/ios`); `PublicAPI.Unshipped.txt` holds the changes since the last release. The build fails if a public member is added, removed or has its signature changed without updating them (a `CoreOnly` build checks only the `net10.0` file; see CONTRIBUTING for the per-target note). The backends, providers, `IDecisionLog` implementations and the neutral model are public; the code maps, the decision policy function and the field validators are internal. Until 1.0, public interfaces and records may gain members; keep `Ageledger` and `Ageledger.Testing` on the same version. `GoogleAgeSignalsBackend`'s constructor exposes the Play binding's `IAgeSignalsManager`, so a breaking update of that binding is a breaking change here. The iOS binding assembly (`Ageledger.IosBinding`, bundled in the package) is an implementation detail and not for direct use: its bound types are internal and only `Ageledger` can see them.
 
 ## Result model
 
@@ -143,6 +324,7 @@ AgeSignalsEvaluation e = await service.EvaluateAsync();
 | `AgeDecision` | `NotApplicable`, `Allowed`, `AllowedWithParentalConsent`, `Blocked` |
 | extras | `SignificantChange` (Google), `ParentalControls` (Apple), `AgeSignalsError` category (includes `NoPresenter`: on iOS no view controller or foreground window scene to show Apple's sheet from; on Android no usable foreground activity (none, finishing or destroyed) for Play's consent screen; and `Timeout`: `RequestTimeout` expired). Enum numbers are fixed; new members are appended |
 | `AgeSignalsEvaluation` | `Result`, `Decision`, `Logged` |
+| `AgeSignalsOutcome` (the `Result` of an evaluation, `e.Result`) | `State`, `Bucket`, `Platform`, `Error`, `SignificantChange`, `ParentalControls` |
 
 Default decision policy (placeholder; the app owner sets the real one): it uses the **younger end** of the reported range. The lower bound (`null` counts as 0) decides: below `MinimumAge` (13) is `Blocked`, below `AdultAge` (18) is `AllowedWithParentalConsent`, otherwise `Allowed`. So `0-17` (a null lower bound counts as 0) and `12-17` are `Blocked` and `16-17` asks for parental consent. The upper bound is not used. `SharedRangePolicy` replaces all of this.
 
@@ -162,39 +344,8 @@ Each entry has exactly five fields: `timestampUtc`, `ageBucket`, `decision`, `ap
 - On read, a line is dropped if it is not valid JSON, repeats a key, misses any of the five keys, has a default timestamp, or has a value that fails the checks above. A line that is valid but has extra keys is kept without those keys. A hand-edited file therefore cannot add other fields.
 - If the log cannot be written (for example storage errors), `EvaluateAsync` still returns the result and decision with `Logged = false`; the exception text is not kept. The log write is not cancelled by the caller's token: a token that fires after the platform call has returned does not discard the finished evaluation.
 - Digits in bucket and version values must be ASCII `0-9`; other Unicode digits are rejected.
-- `AgeSignalsOptions.AgeBucketLogging` chooses what the log stores in `ageBucket`: `Exact` (default; the reported range such as `13-15`) or `Withheld` (the literal `withheld` is written when a range was received, `unknown` when none was, so a reader can tell redaction from no signal; with either setting a received range that cannot be written, such as `7-7`, is also `withheld`). The library does not choose by country or state; the app does. With `Withheld` the explicit range is not stored, but the `decision` value can still imply an age group (with the default policy, `Blocked` means a lower bound under 13). Rows already written are not changed; `ClearAsync()` deletes the whole log. If you must keep nothing derived from the age signal, pass no log to the service. Google's and Apple's developer terms limit what the age signal may be used for and bar passing it to third parties (Google, except as strictly required by law) or to data brokers and resellers (Apple), so do not send exported log rows to analytics, advertising or other outside services. Some US app-store laws limit what a developer may do with, or require deleting, age category data supplied by a store; the texts and the points that remain open are in `docs/retention.md`. An app that keeps the log should state in its privacy policy what it keeps and the `retention` and `maxEntries` settings it uses. Not legal advice; using this setting does not make an app compliant with any law.
+- `AgeSignalsOptions.AgeBucketLogging` chooses what the log stores in `ageBucket`: `Exact` (default; the reported range such as `13-15`) or `Withheld` (the literal `withheld` is written when a range was received, `unknown` when none was, so a reader can tell redaction from no signal; with either setting a received range that cannot be written, such as `7-7`, is also `withheld`). The library does not choose by country or state; the app does. With `Withheld` the explicit range is not stored, but the `decision` value can still imply an age group (with the default policy, `Blocked` means a lower bound under 13). Rows already written are not changed; `ClearAsync()` deletes the whole log. If you must keep nothing derived from the age signal, pass no log to the service. Google's and Apple's developer terms limit what the age signal may be used for and bar passing it to third parties (Google, except as strictly required by law) or to data brokers and resellers (Apple), so do not send exported log rows to analytics, advertising or other outside services. Some US app-store laws limit what a developer may do with, or require deleting, age category data supplied by a store; the texts and the points that remain open are in `docs/retention.md`. If your app keeps the log, consider describing in its privacy policy what it keeps and the `retention` and `maxEntries` values it uses. Not legal advice; using this setting does not make an app compliant with any law.
 - A platform exception is turned into an `Error` result; its text is never stored.
-
-## Layout
-
-```
-src/Ageledger             library: net10.0 (model, mapping, policy, log, AddAgeledger), net10.0-android, net10.0-ios
-src/Ageledger.Testing     fakes for both platforms (package Ageledger.Testing), plain net10.0
-src/Ageledger.IosBinding  net10.0-ios binding of the Swift wrapper (ApiDefinition.cs + the xcframework)
-native/ios                Swift wrapper source + build.sh (builds AgeledgerNative.xcframework, device + simulator arm64)
-tests/Ageledger.Tests     xUnit on plain net10.0, using Ageledger.Testing
-samples/AgeledgerSample   one-page MAUI app for device checks; Debug builds hold an on-device self-test
-scripts                   host scripts that run that self-test on an Android device or an iPhone (docs/device-test-plan.md, section 7.6), and `ios-uitests.sh`, which runs the iPhone UI test in tests/ios-device-uitests (section 7.7; needs at least one Touch ID touch from the person holding the phone, and sets the sandbox scenario back afterwards)
-```
-
-`dotnet build` of the iOS binding runs `native/ios/build.sh` (needs Xcode) when the xcframework is missing or a Swift source or `build.sh` is newer than it. The xcframework is a build output and is not committed. The xcframework carries a dSYM per slice (device and simulator; line tables only; the wrapper's source path is relative and the SDK root is written as `/SDK`) so that crashes inside the wrapper show function names and, where available, source lines; together they add about 25 KB to the package (measured 2026-10-27). They are inside `lib/net10.0-ios*/Ageledger.IosBinding.resources.zip`, under `AgeledgerNative.xcframework/<slice>/dSYMs/`, so you can point `atos` or Xcode at them by hand. Read from the targets file of the 26.5 .NET iOS workload (workload version 10.0.300.3; `Xamarin.Shared.Sdk.targets` in the `Microsoft.iOS.Sdk.net10.0_26.5` pack; not run with this package): it looks for `<framework>.dSYM` next to the `.framework` folder, does not read the xcframework's `dSYMs/` folder, and generates its own `AgeledgerNative.framework.dSYM`, which is expected to have no debug information (symbol table only). Consider replacing that generated dSYM with the shipped one before uploading symbols. dotnet/macios PR #25979 (merged into main 2026-07-23, checked 2026-10-27) copies xcframework dSYMs; which workload release ships it is not known.
-
-Requirements for an app:
-
-- **Android:** API 23+ and Play Store/Play Services.
-  - The library's Android target references `Xamarin.AndroidX.Lifecycle.LiveData.Core` 2.11.0.1, so an Android app on MAUI 10.0.20 needs no manual pin to avoid NU1107 (seen when an app referenced both MAUI 10.0.20 and the age-signals binding). That reference pins `Xamarin.AndroidX.Lifecycle.Common` to [2.11.0.1, 2.11.1); an app that needs a newer version can add its own higher reference.
-  - Restoring an Android app on MAUI 10.0.20 prints NU1608 warnings (Lifecycle Ktx, ViewModel and SavedState packages outside their dependency constraints). They appear because the AndroidX Lifecycle packages are raised above the 2.9.x range that MAUI's own packages declare; an app that does not want them can set `<NoWarn>NU1608</NoWarn>`.
-- **Mac Catalyst, Windows and plain net10.0:** the package's net10.0 assembly is used. There is no platform age signal there: with the service enabled and a provider from `AddAgeledger`, it reports `Unavailable` / `NotAvailable` (not run on those platforms; see Unverified).
-- **iOS:** iOS 15.0+ to install; below iOS 26 the service reports Unavailable / NotAvailable (the platform API starts at iOS 26.0, and the regulatory calls at 26.2 and 26.4).
-  - Building the Swift wrapper needs the iOS 26.4 SDK or newer: `native/ios/build.sh` and the Swift source fail the build otherwise, instead of producing a framework that always reports not available.
-  - The app needs the **Declared Age Range** capability, i.e. the entitlement `com.apple.developer.declared-age-range` in `Entitlements.plist`:
-
-```xml
-<key>com.apple.developer.declared-age-range</key>
-<true/>
-```
-
-Apple's technote [TN3187](https://developer.apple.com/documentation/technotes/tn3187-migrating-to-the-uikit-scene-based-life-cycle) (checked 2026-10-25) says that in the next major release after iOS 26 the UIScene life cycle is required when building with the latest SDK, otherwise the app won't launch. The host iOS app should therefore adopt scenes (`UIApplicationSceneManifest` in `Info.plist` and a scene delegate; in MAUI, a subclass of `MauiUISceneDelegate`, see Microsoft's [MAUI Window page](https://learn.microsoft.com/en-us/dotnet/maui/user-interface/controls/window?view=net-maui-10.0)). Observed here: the sample app, built with the iOS 27.1 SDK, crashed at launch on an iPhone running iOS 27.0.1 until it adopted scenes (`samples/AgeledgerSample/Platforms/iOS`).
 
 ## Sample app
 
@@ -210,23 +361,39 @@ To run the sample (and the iPhone UI test) on your own devices, see [docs/try-th
 
 The sample sets `ValidateXcodeVersion` to false because the .NET for iOS pack (26.5) expects Xcode 26.5 while the sample was built with Xcode 27.1 (checked 2026-10-25); remove it once they match. The app has no `NativeReference` of its own: the Swift framework reaches it through the library. To run on the Simulator keep code signing on (the default; Simulator builds are signed ad-hoc, and whether that works on a Mac with no developer identity was not checked). `-p:EnableCodeSigning=false` is for compile-only builds (as in CI): observed with the iOS 27 Simulator runtime, an app built with it was killed at launch ("Code Signature Invalid"), because in that build the app's main binary and the .NET runtime libraries were not validly signed. An iPhone build (`-p:RuntimeIdentifier=ios-arm64`) is signed manually with a provisioning profile that grants `com.apple.developer.declared-age-range`; `CodesignKey` and `CodesignProvision` come from a local, untracked `samples/AgeledgerSample/AgeledgerSample.csproj.user`, and `Entitlements.plist` is applied to device builds only. Nothing account-specific is committed. It has run on an Android phone, on an iPhone (iOS 27.0.1, Apple sandbox account, UI test) and, headless, on the iOS Simulator (see [docs/device-test-results.md](docs/device-test-results.md)).
 
+## Layout and the bundled iOS framework
+
+```
+src/Ageledger             library: net10.0 (model, mapping, policy, log, AddAgeledger), net10.0-android, net10.0-ios
+src/Ageledger.Testing     fakes for both platforms (package Ageledger.Testing), plain net10.0
+src/Ageledger.IosBinding  net10.0-ios binding of the Swift wrapper (ApiDefinition.cs + the xcframework)
+native/ios                Swift wrapper source + build.sh (builds AgeledgerNative.xcframework, device + simulator arm64)
+tests/Ageledger.Tests     xUnit on plain net10.0, using Ageledger.Testing
+samples/AgeledgerSample   one-page MAUI app for device checks; Debug builds hold an on-device self-test
+scripts                   host scripts that run that self-test on an Android device or an iPhone (docs/device-test-plan.md, section 7.6), and `ios-uitests.sh`, which runs the iPhone UI test in tests/ios-device-uitests (section 7.7; needs at least one Touch ID touch from the person holding the phone, and sets the sandbox scenario back afterwards)
+```
+
+`dotnet build` of the iOS binding runs `native/ios/build.sh` (needs Xcode) when the xcframework is missing or a Swift source or `build.sh` is newer than it. The xcframework is a build output and is not committed. The xcframework carries a dSYM per slice (device and simulator; line tables only; the wrapper's source path is relative and the SDK root is written as `/SDK`) so that crashes inside the wrapper show function names and, where available, source lines; together they add about 25 KB to the package (measured 2026-10-27). They are inside `lib/net10.0-ios*/Ageledger.IosBinding.resources.zip`, under `AgeledgerNative.xcframework/<slice>/dSYMs/`, so you can point `atos` or Xcode at them by hand. Read from the targets file of the 26.5 .NET iOS workload (workload version 10.0.300.3; `Xamarin.Shared.Sdk.targets` in the `Microsoft.iOS.Sdk.net10.0_26.5` pack; not run with this package): it looks for `<framework>.dSYM` next to the `.framework` folder, does not read the xcframework's `dSYMs/` folder, and generates its own `AgeledgerNative.framework.dSYM`, which is expected to have no debug information (symbol table only). Consider replacing that generated dSYM with the shipped one before uploading symbols. dotnet/macios PR #25979 (merged into main 2026-07-23, checked 2026-10-27) copies xcframework dSYMs; which workload release ships it is not known.
+
 ## APIs covered (checked 2026-10-25 against the code, the iPhoneOS 27.1 SDK in Xcode 27.1 and the Android binding 0.0.4)
 
 Android (Microsoft binding 0.0.4, `net10.0-android36.0`): `AgeSignalsManagerFactory.Create`, `IAgeSignalsManager.RequestAgeSignalsAccess` (with `AgeSignalsAccessRequest` built from the foreground `Activity`) then `CheckAgeSignals`, `AgeSignalsAccessResult.AgeSignalsStatus`, `AgeSignalsResult.AgeLower/AgeUpper/SignificantChangeStatus`, `AgeSignalsException.ErrorCode` and the `AgeSignalsErrorCode` constants. `InstallId` and `AgeRangeSource` are deliberately not read into the model. Google's `FakeAgeSignalsManager` can be passed to `GoogleAgeSignalsBackend` for on-device tests.
 
 iOS (swiftinterface in the iPhoneOS 27.1 SDK, Xcode 27.1): `AgeRangeService.shared.requestAgeRange(ageGates:_:_:in:)` (iOS 26.0), `Response`, `AgeRange.lowerBound/upperBound/activeParentalControls`, `AgeRangeService.Error`, `isEligibleForAgeFeatures` (26.2), `requiredRegulatoryFeatures` and `RegulatoryFeature` (26.4), `showSignificantUpdateAcknowledgment(in:updateDescription:)` (26.4, iOS only). Not bound: `AgeRangeDeclaration` (dropped on purpose), PermissionKit `SignificantAppUpdateTopic`, the SwiftUI environment actions.
 
-## Laws it was designed around (background only; not legal advice)
+## US state laws that prompted this library (background only; not legal advice; not a statement that it meets them)
 
 From desk research checked 2026-10-25 (primary sources are the enrolled bills; details and caveats in `docs/retention.md`):
 
 | Law | Operative date (per the source read) | Note |
 |---|---|---|
-| Texas SB 2420 (App Store Accountability Act) | Text: takes effect 2026-01-01 (Sec. 3). Court status not checked from primary sources; see docs/retention.md | Developer duties in Bus. & Com. Code ch. 121 |
+| Texas SB 2420 (App Store Accountability Act) | Text: 2026-01-01 (Sec. 3). A federal district court enjoined it on 2025-12-23; the Fifth Circuit stayed that injunction pending appeal on 2026-06-04, and the Supreme Court denied an application to vacate the stay on 2026-07-06 (No. 25A1390). The appeal was pending when checked (2026-11-06). | Developer duties in Bus. & Com. Code ch. 121. Litigation is ongoing and may change this. |
 | California AB 1043 (Digital Age Assurance Act) | 2027-01-01 | Developers request an age-bracket signal; read from code-section mirrors, not the official chaptered text |
 | Alabama HB 161 | 2027-01-01 | Enrolled text read |
-| Utah ch. 13-76 as amended by H.B. 498 | 2027-05-06 | Private right of action only |
-| Louisiana Act 185 (HB 977 of 2026) | 2027-07-01 | Replaces Act 481, which never took effect |
+| Utah ch. 13-76 as amended by H.B. 498 | 2027-05-06 | Private right of action only. The industry challenge to the original law was dismissed on 2026-04-21 after the amendment (law-firm summaries, checked 2026-11-06) |
+| Louisiana Act 185 (HB 977 of 2026) | 2027-07-01 | Replaces Act 481, which never took effect. No lawsuit found (checked 2026-11-06) |
+
+Texas court events (checked 2026-11-06): the Supreme Court docket, No. 25A1390, <https://www.supremecourt.gov/search.aspx?filename=/docket/docketfiles/html/public/25a1390.html> (primary); and CCIA's application to vacate the stay, <https://ccianet.org/wp-content/uploads/securepdfs/2026/06/2026-06-10_LITIG_CCIA-v.-Paxton_SCOTUS-App-to-Vacate-Stay.pdf> (a party filing; the source for the 2025-12-23 and 2026-06-04 dates).
 
 Retention of age-category data, and what the log setting above does and does not cover: `docs/retention.md`.
 
@@ -240,9 +407,9 @@ Details and the rows not run are in [docs/device-test-results.md](docs/device-te
 - Cancelling a call before it starts throws an `OperationCanceledException` subtype and writes no log entry.
 - The real Play manager binds and returns a result on a sideloaded app (`NotShared`, no error).
 
-iPhone (iOS 27.0.1, Apple sandbox account, Debug sample, gates 13/16/18; three runs on 2026-10-26 and 2026-10-27, UI test in tests/ios-device-uitests):
+iPhone (iOS 27.0.1, Apple sandbox account, Debug sample, gates 13/16/18; three runs, two on 2026-10-26 and one on 2026-10-27, UI test in tests/ios-device-uitests; run numbers and details are in docs/device-test-results.md):
 
-- In all three runs, for each of the six age scenarios the library returned `Shared` and reported the entry as logged (no error in runs 11 and 14; run 12's report did not record the error field): bucket `18+` / `Allowed` for the three 18+ scenarios, `16-17` and `13-15` / `AllowedWithParentalConsent`, `0-12` / `Blocked`. Runs 12 and 14 compared every row with the expected values and all matched; in run 11 the comparison was broken by a parser bug, but the recorded values match. Apple's sandbox showed no consent sheet in any run. In runs 12 and 14 the starting scenario was read from Settings and every switch and the final restore were read back. One device, one OS version, three runs.
+- In all three runs, for each of the six age scenarios the library returned `Shared` and reported the entry as logged (no error in the first and third run; the second run's report did not record the error field): bucket `18+` / `Allowed` for the three 18+ scenarios, `16-17` and `13-15` / `AllowedWithParentalConsent`, `0-12` / `Blocked`. The second and third runs compared every row with the expected values and all matched; in the first run (2026-10-26) the comparison was broken by a parser bug, but the recorded values match. Apple's sandbox showed no consent sheet in any run. In the second and third runs the starting scenario was read from Settings and every switch and the final restore were read back. One device, one OS version, three runs.
 
 iOS Simulator (headless, iOS 26.5; these runs predate the sample's scene adoption and have not been re-run with it):
 
@@ -278,7 +445,7 @@ Pick whichever fits your app. This comparison was checked on 2026-10-30; the oth
 - Whether any released .NET iOS workload copies these dSYMs into an app's archive.
 - No crash inside the Swift wrapper has been symbolicated with the shipped dSYMs; only `atos` on the dSYM against a wrapper function was checked.
 - iOS: `RequestTimeout` with the sandbox Off scenario has been observed once, on one iPhone running iOS 27.0.1 with the Apple sandbox account (State Error, Error Timeout at about 15.1 s, 2026-10-27). Cancellation with Off has not been run on a device: the Cancel button was off screen in the UI test, and the button's new position has not been run.
-- On an iPhone only the sandbox scenarios listed above ran (one device, one OS version, gates 13/16/18). Not run: answering or declining a consent sheet (none appeared in the sandbox), `IsEligibleForAgeFeatures` and the 26.4 regulatory calls, cancellation with a real sheet, the sandbox "Off" scenario with no timeout (with Off and no timeout, Evaluate did not return within 60 seconds in all three runs; in run 12 a system sheet "Age-Appropriate Experiences in Apps" was up in Settings, in run 14 none was and the sample was in the foreground; the cause is not confirmed; with `RequestTimeout` 15 s it ended with a Timeout error once, see the I18 row in the device test results), and any real (non-sandbox) account. The earlier iOS 26.5 Simulator results predate the sample's scene adoption. On 2026-10-27 a headless iOS 27.0 Simulator run launched the app, passed the self-test 20/20 and got Unavailable / NotAvailable from the real Apple backend through the internal binding, with no crash; no real age range or sheet answer was observed there. The library logic is otherwise covered by the fakes. On Android the real Play manager has not returned a real age signal (a licence tester or supported state); only the sideloaded `NotShared` path was observed. The Simulator's flow dismissed itself about 90 ms after being presented; why is not confirmed.
+- On an iPhone only the sandbox scenarios listed above ran (one device, one OS version, gates 13/16/18). Not run: answering or declining a consent sheet (none appeared in the sandbox), `IsEligibleForAgeFeatures` and the 26.4 regulatory calls, cancellation with a real sheet, the sandbox "Off" scenario with no timeout (with Off and no timeout, Evaluate did not return within 60 seconds in all three runs; in the second run (2026-10-26) a system sheet "Age-Appropriate Experiences in Apps" was up in Settings, in the third (2026-10-27) none was and the sample was in the foreground; the cause is not confirmed; with `RequestTimeout` 15 s it ended with a Timeout error once, see the I18 row in the device test results), and any real (non-sandbox) account. The earlier iOS 26.5 Simulator results predate the sample's scene adoption. On 2026-10-27 a headless iOS 27.0 Simulator run launched the app, passed the self-test 20/20 and got Unavailable / NotAvailable from the real Apple backend through the internal binding, with no crash; no real age range or sheet answer was observed there. The library logic is otherwise covered by the fakes. On Android the real Play manager has not returned a real age signal (a licence tester or supported state); only the sideloaded `NotShared` path was observed. The Simulator's flow dismissed itself about 90 ms after being presented; why is not confirmed.
 - Whether a `net10.0-android` app really gets a usable `Activity` through `Platform.CurrentActivity` for `AgeSharingConsentWrapperActivity` in all lifecycle states.
 - iOS: whether cancelling or timing out the token while Apple's sheet is up behaves sensibly (the wait stops; the sheet stays until the person dismisses it). A token already cancelled when the main-thread work starts skips the sheet; this is compiled, not run.
 - Android: the bounds Play returns are not assumed to follow the log's bucket rules. An unexpected range (equal bounds, lower above upper, a bound of 100 or more) is logged as `withheld` (a range was received but cannot be written); the returned `Bucket` is unchanged.
@@ -290,12 +457,14 @@ Pick whichever fits your app. This comparison was checked on 2026-10-30; the oth
 - Android: whether the binding's `AsAsync` surfaces Google's `AgeSignalsException` as the managed type for the real Play manager. If it does not, every Android error maps to `Other` (the Fake was checked; the real manager's error path was not).
 - iOS: the xcframework has arm64 slices only (device and simulator); there is no x86_64 simulator slice, so Intel Macs cannot run the simulator build.
 - How Apple reports bounds when the lower gate is not crossed (`lowerBound` nil): treated as 0 in the label.
-- That the dynamic framework is embedded and signed correctly in an app bundle on a device. The sample app builds for the Simulator and `Frameworks/AgeledgerNative.framework` is in the bundle with no `NativeReference` in the app (also when the app consumes a locally packed `Ageledger` nupkg, which carries the binding assembly and its `.resources.zip`); running a build with this framework on a device has not been checked. The framework slices now carry a valid ad-hoc signature (checked with `codesign` on the packed package); the valid signature is in the release after 0.1.0-preview.2 (0.1.0-preview.1 and 0.1.0-preview.2 had a signature that did not match the contents). A Simulator app built with code signing turned off was killed at launch ("Code Signature Invalid") although the framework verified, because in that build the main binary and the .NET runtime libraries were not validly signed. In a default-signing Simulator build the bundle, main binary, framework and the two runtime libraries checked (libmonosgen-2.0, libSystem.Native) verified with `codesign -vv --strict`, and the app launched and was still running after 10 s (control run, 2026-10-30); in a device build the framework verified with the developer identity (not run on a device).
-- Texas civil-penalty amounts, the Texas court status, California AB 1856 status, Utah/Alabama signing dates, and the Play testing artifact's Maven coordinates.
+- That the dynamic framework is embedded and signed correctly in an app bundle on a device. The sample app builds for the Simulator and `Frameworks/AgeledgerNative.framework` is in the bundle with no `NativeReference` in the app (also when the app consumes a locally packed `Ageledger` nupkg, which carries the binding assembly and its `.resources.zip`); device builds with the earlier framework (0.1.0-preview.2 and before) ran on an iPhone (see Verified on devices), but a device build with the newly ad-hoc-signed framework (after 0.1.0-preview.2) has not been run. The framework slices now carry a valid ad-hoc signature (checked with `codesign` on the packed package); the valid signature is in the release after 0.1.0-preview.2 (0.1.0-preview.1 and 0.1.0-preview.2 had a signature that did not match the contents). A Simulator app built with code signing turned off was killed at launch ("Code Signature Invalid") although the framework verified, because in that build the main binary and the .NET runtime libraries were not validly signed. In a default-signing Simulator build the bundle, main binary, framework and the two runtime libraries checked (libmonosgen-2.0, libSystem.Native) verified with `codesign -vv --strict`, and the app launched and was still running after 10 s (control run, 2026-10-30); in a device build the framework verified with the developer identity (not run on a device).
+- Texas civil-penalty amounts, the outcome of the Texas appeal (only the court events listed in the law table were checked), California AB 1856 status, Utah/Alabama signing dates, and the Play testing artifact's Maven coordinates.
 - Whether the default `NoSignal`/`VerificationRequired` decisions suit any particular law. They are placeholders.
+- The Xcode version an app needs to build with the NuGet package on iOS. Only building this repository from source (iOS 26.4 SDK or newer, and the Xcode 27.1 runs here) is established.
 
 ## Licence
 
 Licensed under the Apache License, Version 2.0; see [LICENSE](LICENSE) and [NOTICE](NOTICE). Copyright 2026 The Ageledger Authors.
 
 Security issues: see [SECURITY.md](SECURITY.md). Contributions: see [CONTRIBUTING.md](CONTRIBUTING.md).
+
