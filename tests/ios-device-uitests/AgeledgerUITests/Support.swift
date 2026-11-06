@@ -166,12 +166,13 @@ func evaluateRow(_ test: XCTestCase, _ sample: SampleApp, row: String, scenario:
     }
     var text = sample.waitForResult(timeout: 20, differentFrom: stale)
     var emptyResult = false
+    var late = ProbeResult() // a sheet that shows up after the first probe (or while the result is missing) still counts
     if text.isEmpty {
         // Whatever the app shows is recorded: wait longer and note what is on screen and which app is in the foreground (no screenshot).
         text = sample.waitForResult(timeout: 40, differentFrom: stale)
         if text.isEmpty {
             emptyResult = true
-            let late = SheetProbe.look(timeout: 3)
+            late = SheetProbe.look(timeout: 3)
             notes.append("foreground when the result was missing: \(foregroundSummary(sample, includeSettings: touchSettings))")
             if touchSettings { SandboxSettings.noteSystemSheets("system sheet while the result was missing") }
             notes.append(late.findings.isEmpty ? "no result label after 60 s; nothing found on screen"
@@ -179,6 +180,8 @@ func evaluateRow(_ test: XCTestCase, _ sample: SampleApp, row: String, scenario:
             verdict = "unknown"
         }
     }
+    if !emptyResult, !probe.seen { late = SheetProbe.look(timeout: 1) }
+    if late.seen { notes.append("a sheet appeared after the first probe and was left unanswered"); verdict = "unknown" }
     let status = sample.statusText
     if terminate { sample.app.terminate() } // so a lingering sheet cannot block the next Settings step; nothing is tapped to dismiss it
     var result = SampleApp.parse(text)
@@ -198,8 +201,15 @@ func evaluateRow(_ test: XCTestCase, _ sample: SampleApp, row: String, scenario:
             check = result["Bucket"] == want.bucket && result["Decision"] == want.decision ? "match" : "mismatch"
         }
     }
-    return ExplorationRow(row: row, scenario: scenario, sheetSeen: probe.seen, sheetFindings: probe.findings,
+    result["Outcome"] = ResultParser.outcome(of: text) // one spelling for every row: returned, cancelled, timed-out, ...
+    let seen = probe.seen ? probe : late
+    return ExplorationRow(row: row, scenario: scenario, sheetSeen: probe.seen || late.seen, sheetFindings: seen.findings,
                           result: result, verdict: verdict, note: notes.isEmpty ? nil : notes.joined(separator: "; "),
-                          matchedProcess: probe.seen ? probe.process : nil, matchedContainer: probe.seen ? probe.container : nil,
+                          matchedProcess: seen.seen ? seen.process : nil, matchedContainer: seen.seen ? seen.container : nil,
                           expected: expected, check: check)
+}
+
+extension ExplorationRow {
+    /// Whether a result label was read (an empty one is stored only as the sample's status line).
+    var resultShown: Bool { result["Status"] == nil && result["Outcome"] != "no-result" && !result.isEmpty }
 }

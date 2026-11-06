@@ -179,7 +179,11 @@ public sealed partial class MainPage : ContentPage
         {
             SaveLaunchDelay(); // Unfocused does not fire when the field is left with Back
             _ = int.TryParse(SafePrefString(LaunchDelayKey), out var delay);
-            if (launchOnce) delay = launchOnceDelay; // this launch only: the stored switch and delay are not changed
+            if (launchOnce)
+            {
+                delay = launchOnceDelay; // this launch only: the stored switch and delay are not changed
+                startupNote = " Launch evaluate (argument)."; // the UI test looks for this in the status line; the next Rebuild (Evaluate's) shows it
+            }
             MainThread.BeginInvokeOnMainThread(async () =>
             {
                 if (delay > 0) await Task.Delay(delay);

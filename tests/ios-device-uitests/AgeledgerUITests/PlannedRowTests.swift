@@ -13,14 +13,8 @@ enum RowScenario {
     /// The scenario named in ROW_SCENARIO when it is one of `allowed`; otherwise an error, before the sample is touched.
     static func required(allowed: [String]) throws -> String {
         let named = ProcessInfo.processInfo.environment["ROW_SCENARIO"] ?? ""
-        guard !named.isEmpty else {
-            throw SandboxSettingsError.verificationFailed("ROW_SCENARIO is not set; set the sandbox scenario by hand and pass it with --scenario")
-        }
-        guard SandboxSettings.scenarios.contains(named) else {
-            throw SandboxSettingsError.verificationFailed("ROW_SCENARIO is not a known scenario label")
-        }
-        guard allowed.contains(named) else {
-            throw SandboxSettingsError.verificationFailed("this row cannot use the scenario \"\(named)\"; allowed: \(allowed.joined(separator: " | "))")
+        if let problem = ResultParser.rowScenarioProblem(named: named, known: SandboxSettings.scenarios, allowed: allowed) {
+            throw SandboxSettingsError.verificationFailed(problem)
         }
         return named
     }
@@ -44,17 +38,21 @@ final class PlannedRowTests: XCTestCase {
     /// I7b: gates [13,16,18], MinimumAge 16, scenario 13-15: the range is 13-15 and the library's default policy blocks it.
     func testI7b() throws {
         let sample = try begin(allowed: [RowScenario.thirteenToFifteen])
-        let made = try recordRow {
+        var made = try recordRow {
             try evaluateRow(self, sample, row: "i7b", scenario: scenario, answer: nil, expectation: .fixed(bucket: "13-15", decision: "Blocked"),
                             setup: { s in
                                 var notes = try Self.gatesSetup("[13,16,18]")(s)
-                                notes.append("MinimumAge 16 (Debug preset)")
-                                if !(try s.setMinimumAgePreset("16")) { notes.append("unknown: the MinimumAge preset did not read back 16") }
+                                if try s.setMinimumAgePreset("16") { notes.append("MinimumAge 16 (Debug preset, read back)") }
+                                else { notes.append("unknown: the MinimumAge preset did not read back 16") }
                                 return notes
                             }, touchSettings: false)
         }
-        // The library's rule, not Apple's: a 13-15 range with MinimumAge 16 must be Blocked. Checked only when the range arrived as 13-15.
-        if made.result["Bucket"] == "13-15" { XCTAssertEqual(made.result["Decision"], "Blocked") }
+        let confirmed = made.verdict == "recorded" // gates and the MinimumAge preset both read back
+        made.result["MinimumAge"] = confirmed ? "16" : "not confirmed"
+        report.rows[report.rows.count - 1] = made
+        // The library's rule, not Apple's: a 13-15 range with MinimumAge 16 must be Blocked. Checked only when the settings read back and
+        // the range arrived as 13-15.
+        if confirmed, made.result["Bucket"] == "13-15" { XCTAssertEqual(made.result["Decision"], "Blocked") }
     }
 
     /// I7c: gates [18], scenario 13-15 or 16-17. Apple decides the range it returns under that gate; the plan expects 0-17 and Blocked.
@@ -74,8 +72,9 @@ final class PlannedRowTests: XCTestCase {
                 try evaluateRow(self, sample, row: "i11 \(preset)", scenario: scenario, answer: nil, expectation: .record,
                                 setup: Self.gatesSetup(preset), touchSettings: false)
             }
-            if made.sheetSeen { // left unanswered; later rows could meet it again
-                report.stoppedBy = "a sheet appeared; the remaining presets were not run"
+            // After a request was started, go on only when a result was shown and no sheet was seen (the row's probes include a late one).
+            if !ResultParser.mayContinue(sheetSeen: made.sheetSeen, lateSheetSeen: false, resultShown: made.resultShown) || made.verdict == "unknown" {
+                report.stoppedBy = "the remaining presets were not run: a sheet appeared, no result was shown, or a setting did not read back"
                 break
             }
         }
@@ -98,7 +97,9 @@ final class PlannedRowTests: XCTestCase {
     }
 
     /// 8.1 (e), with the sheet part of 8.1 (b): "Evaluate, cancel after N ms" with N = 0 (a token that is already cancelled) must end as
-    /// cancelled with no sheet; a normal Evaluate in the same process after it must then return a result.
+    /// cancelled with no sheet; a normal Evaluate in the same process after it must then return a result. The second step runs only when
+    /// the first ended as cancelled with no sheet seen (ResultParser.mayRunNormalEvaluate), and a sheet is probed for again right
+    /// before the scroll and the tap.
     func testI81e() throws {
         let sample = try begin(allowed: RowScenario.notOff)
         var notes: [String] = []
@@ -106,22 +107,33 @@ final class PlannedRowTests: XCTestCase {
         var verdict = "recorded"
         let before = sample.resultText
         try recording { try sample.tapAfterScrolling("evaluate-cancel-after") } // N is the sample's default, 0
-        let probe = SheetProbe.look(timeout: 3)
+        let probe = SheetProbe.look(timeout: 10) // as evaluateRow does
         let text = sample.waitForResult(timeout: 10, differentFrom: before)
+        let late = probe.seen ? ProbeResult() : SheetProbe.look(timeout: 1)
         var result = SampleApp.parse(text)
-        result["Outcome"] = result["Outcome"] ?? ResultParser.outcome(of: text)
+        result["Outcome"] = ResultParser.outcome(of: text)
         if let elapsed = ResultParser.elapsedMs(text) { result["ElapsedMs"] = String(elapsed) }
-        if text.isEmpty { notes.append("no result after the pre-cancelled call"); verdict = "unknown" }
-        if probe.seen { notes.append("a sheet appeared after the pre-cancelled call and was left unanswered"); verdict = "unknown" }
-        if !text.isEmpty, result["Outcome"] != "Cancelled" { notes.append("the pre-cancelled call did not end as cancelled") }
-        report.rows.append(row("i81b-pre-cancelled", probe: probe, result: result, verdict: verdict, notes: notes))
-        guard verdict == "recorded", text.isEmpty == false else {
-            report.stoppedBy = "the normal Evaluate was not run: the pre-cancelled call gave no result or a sheet appeared"
+        let proceed = ResultParser.mayRunNormalEvaluate(sheetSeen: probe.seen, lateSheetSeen: late.seen, resultText: text)
+        if text.isEmpty { notes.append("no result after the pre-cancelled call") }
+        if probe.seen || late.seen { notes.append("a sheet appeared after the pre-cancelled call and was left unanswered") }
+        if !proceed { verdict = "unknown" }
+        report.rows.append(row("i81b-pre-cancelled", probe: probe.seen ? probe : late, result: result, verdict: verdict, notes: notes))
+        // 8.1 (b) is the library's rule: a token that is already cancelled ends as cancelled (checked when no sheet got in the way).
+        if !(probe.seen || late.seen), !text.isEmpty { XCTAssertEqual(result["Outcome"], "cancelled", "the pre-cancelled call did not end as cancelled") }
+        guard proceed else {
+            report.stoppedBy = "the normal Evaluate was not run: the pre-cancelled call did not end as cancelled, or a sheet appeared"
             return
         }
 
-        // Nothing is in flight and no sheet was seen: scroll back to Evaluate, then run a normal Evaluate in the same process.
-        sample.scrollToTop()
+        // Nothing is in flight and no sheet was seen. Probe once more right before any gesture, then scroll back only as far as Evaluate.
+        let again = SheetProbe.look(timeout: 2)
+        guard !again.seen else {
+            report.rows[report.rows.count - 1].sheetSeen = true
+            report.rows[report.rows.count - 1].verdict = "unknown"
+            report.stoppedBy = "a sheet appeared before the normal Evaluate; nothing more was done"
+            return
+        }
+        sample.scrollToTop(until: "evaluate")
         let second = try recordRow {
             try evaluateRow(self, sample, row: "i81e-normal-after-cancel", scenario: scenario, answer: nil, expectation: .table,
                             relaunch: false, touchSettings: false)
@@ -143,20 +155,19 @@ final class PlannedRowTests: XCTestCase {
             sample.relaunch(arguments: pass.arguments)
             let probe = SheetProbe.look(timeout: 10)
             let text = sample.waitForResult(timeout: 30)
+            let late = probe.seen ? ProbeResult() : SheetProbe.look(timeout: 1)
             let status = sample.statusText
             var result = SampleApp.parse(text)
-            result["Outcome"] = result["Outcome"] ?? ResultParser.outcome(of: text)
+            result["Outcome"] = ResultParser.outcome(of: text)
             if let elapsed = ResultParser.elapsedMs(text) { result["ElapsedMs"] = String(elapsed) }
-            if text.isEmpty {
-                verdict = "unknown"
-                notes.append(status.hasPrefix("Service built")
-                             ? "no launch evaluation happened (a Release sample ignores the launch argument)"
-                             : "no result after 40 s; foreground: \(foregroundSummary(sample, includeSettings: false))")
-            }
-            if probe.seen { notes.append("a sheet appeared and was left unanswered"); verdict = "unknown" }
+            // The Debug sample puts this marker in its status line when it acts on the launch argument.
+            if !status.contains("Launch evaluate (argument)") { notes.append("the sample did not report acting on the launch argument (status marker missing)"); verdict = "unknown" }
+            if text.isEmpty { notes.append("no result within the 30 s wait; foreground: \(foregroundSummary(sample, includeSettings: false))"); verdict = "unknown" }
+            if probe.seen || late.seen { notes.append("a sheet appeared and was left unanswered"); verdict = "unknown" }
+            let go = ResultParser.mayContinue(sheetSeen: probe.seen, lateSheetSeen: late.seen, resultShown: !text.isEmpty)
             sample.app.terminate() // nothing is tapped to dismiss anything
-            report.rows.append(row(pass.name, probe: probe, result: result, verdict: verdict, notes: notes))
-            if probe.seen { report.stoppedBy = "a sheet appeared; the remaining pass was not run"; break }
+            report.rows.append(row(pass.name, probe: probe.seen ? probe : late, result: result, verdict: verdict, notes: notes))
+            if !go { report.stoppedBy = "the remaining pass was not run: a sheet appeared or no result was shown"; break }
         }
     }
 
@@ -227,6 +238,7 @@ final class PlannedRowTests: XCTestCase {
         try recording { try sample.tapAfterScrolling(button) }
         let probe = SheetProbe.look(timeout: 3)
         let status = sample.waitForStatus(changedFrom: before, timeout: waitSeconds)
+        let late = probe.seen ? ProbeResult() : SheetProbe.look(timeout: 1)
         var notes: [String] = []
         var verdict = "recorded"
         var observed = "no-status"
@@ -238,8 +250,8 @@ final class PlannedRowTests: XCTestCase {
             verdict = "unknown"
             notes.append("no status change after \(Int(waitSeconds)) s; foreground: \(foregroundSummary(sample, includeSettings: false))")
         }
-        if probe.seen { notes.append("a sheet appeared and was left unanswered"); verdict = "unknown" }
+        if probe.seen || late.seen { notes.append("a sheet appeared and was left unanswered"); verdict = "unknown" }
         sample.app.terminate() // nothing is tapped to dismiss anything
-        report.rows.append(row(name, probe: probe, result: ["Observed": observed], verdict: verdict, notes: notes))
+        report.rows.append(row(name, probe: probe.seen ? probe : late, result: ["Observed": observed], verdict: verdict, notes: notes))
     }
 }

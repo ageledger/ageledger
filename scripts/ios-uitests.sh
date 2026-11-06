@@ -25,10 +25,12 @@
 # (passed to the test as TEST_RUNNER_ASSUME_ORIGINAL=Off). Without the flag an unreadable starting scenario stops the run before any
 # change. Each row's result is compared with the expected range in the test report.
 # The opt-in rows i7b, i7c, i11, i12, i13, i14, i81e and i83 (device test plan sections 7.3 and 8) never open Settings and never change the
-# sandbox scenario. The person at the phone sets the scenario by hand first (Settings > Developer > Sandbox Apple Account > Age
-# Assurance) and passes its label with --scenario (it is handed to the test as TEST_RUNNER_ROW_SCENARIO); the script refuses a label the
-# row cannot use and prints which one to set. The test cannot read the scenario back, so it records it as declared. These runs print
-# NOTHING-CHANGED at the end, so no restore is needed, and they ask for no Touch ID.
+# sandbox scenario. The person at the phone sets the scenario by hand first (Settings > Developer > Sandbox Apple Account >
+# Manage > Age Assurance) and passes its label with --scenario (it is handed to the test as TEST_RUNNER_ROW_SCENARIO); the script refuses a
+# label the row cannot use and prints which one to set. The test cannot read the scenario back, so it records it as declared. The scenario
+# is not changed, so these runs print NOTHING-CHANGED at the end and need no restore. The test itself asks for no Touch ID; an Apple
+# screen (from I14, or the age sheet) might: if one does, touch the sensor or leave it, and never tap Cancel. A row run refuses to start
+# while a restore marker exists (it never restores): finish that with a default run, or check the phone by hand and delete the marker.
 # The phone may ask for Touch ID once, when Settings opens the sandbox account: touch the sensor when the log shows
 # "ACTION NEEDED: touch the Touch ID sensor on the iPhone now (120 s)" (the test waits up to 120 s and never taps Cancel). If the
 # line does not show live, watch the phone. A failure-path restore from outside may ask once more.
@@ -95,6 +97,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
+if [[ -n "$row_test" && $reinstall -eq 1 ]]; then echo "use --row or --reinstall-probe, not both" >&2; exit 2; fi
 if [[ -n "$row_test" ]]; then
   [[ -z "$test_id" ]] || { echo "use either --row or --test, not both" >&2; exit 2; }
   test_id="$row_test"
@@ -434,6 +437,13 @@ echo "$WHO $(date -u +%Y-%m-%dT%H:%M:%SZ) ui test $test_id pid=$$" > "$lock/owne
 # The lock is held now: check again that nobody started a test between the first check and the lock.
 if other_test_running; then echo "an xcodebuild test for this device started meanwhile; refusing" >&2; exit 3; fi
 
+# A row run never restores anything (it does not change the scenario), so a restore marker left by an earlier run stops it here, before
+# anything is generated, installed or run.
+if [[ -n "$row_name" && -f "$pending" ]]; then
+  echo "a restore marker exists ($pending, holding: $(cat "$pending")). It can come from an earlier default run, or from an interrupted row run (a killed run leaves 'unknown'). A row run does not restore: finish the restore with a default run (--test ExplorationTests/testExploration) if it holds a scenario label, or check the Age Assurance scenario on the phone by hand and delete the file." >&2
+  exit 7
+fi
+
 (cd "$PROJECT_DIR" && xcodegen generate >/dev/null)
 
 if [[ $reinstall -eq 1 ]]; then
@@ -445,7 +455,7 @@ fi
 
 # A restore left pending by an earlier run comes first; if it cannot be verified, this run refuses to start.
 if [[ -f "$pending" && "$(cat "$pending")" == unknown ]]; then
-  echo "an earlier run may have changed the Age Assurance scenario and did not record the original: check the Age Assurance scenario by hand, then delete $pending" >&2
+  echo "an earlier run may have changed the Age Assurance scenario and did not record the original (this can also be an interrupted row run, which leaves 'unknown'): check the Age Assurance scenario by hand, then delete $pending" >&2
   exit 7
 fi
 if [[ -f "$pending" ]]; then
@@ -462,7 +472,7 @@ if [[ $assume_off -eq 1 ]]; then XENV=("TEST_RUNNER_ASSUME_ORIGINAL=Off"); fi
 if [[ -n "$row_name" ]]; then
   XENV+=("TEST_RUNNER_ROW_SCENARIO=$scenario_label")
   echo "Row $row_name: Age Assurance must already be set to \"$scenario_label\" on the phone (by hand); the test does not read or change it."
-  echo "Leave the phone unlocked and untouched during the run; if an Apple sheet appears, leave it alone (the test never answers it)."
+  echo "The test itself asks for no Touch ID; an Apple screen (e.g. from I14 or the age sheet) might: if one does, touch the sensor or leave it; never tap Cancel. The test never answers a sheet."
 else
   echo "If the iPhone asks for Touch ID, touch the sensor (the test waits up to 120 s and never taps Cancel)."
 fi

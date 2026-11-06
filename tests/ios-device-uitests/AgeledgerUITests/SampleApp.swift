@@ -61,11 +61,12 @@ struct SampleApp {
         button.tap()
     }
 
-    /// Swipes the sample's scroll view down (at most 4 times) so the controls at the top are reachable again. Same caution as
-    /// tapAfterScrolling: only while nothing is in flight and no sheet can be up.
-    func scrollToTop() {
+    /// Swipes the sample's scroll view down (at most 4 times) until the button is hittable; does nothing when it already is. Same caution
+    /// as tapAfterScrolling: only while nothing is in flight and no sheet can be up.
+    func scrollToTop(until id: String) {
+        let button = app.buttons[id]
         var swipes = 0
-        while swipes < 4, app.state == .runningForeground {
+        while swipes < 4, app.state == .runningForeground, !button.isHittable {
             let scroll = app.scrollViews.firstMatch
             if scroll.exists { scroll.swipeDown() } else { app.swipeDown() }
             swipes += 1
