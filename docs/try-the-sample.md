@@ -8,6 +8,8 @@ Links to Apple and Google pages were checked on 2026-10-27 (see the list at the 
 
 ## 0. Before you start
 
+Android only? Skip to section 8 (the package name is `com.ageledger.sample` unless you set your own as in section 2).
+
 - You will build the sample from a clone of this repository, with your own bundle ID (section 2) and your own Apple signing (section 3). The identifiers this project uses are registered to its own Apple developer team, and Apple does not let another team register the same ones.
 - Placeholders used below: `com.example.agesample` (your bundle ID), `YOUR_TEAM_ID`, `<IPHONE_UDID>`, `<PROFILE_UUID>`. Keep real values out of anything you commit.
 - The sample is a Debug app for testing. A Debug build can be told to run its self-test by any app on the same device, so do not leave it installed on a device you do not control.
@@ -42,7 +44,7 @@ Other mentions of our IDs are in the documentation (`docs/device-test-plan.md` a
 
 ## 3. Apple developer account steps (iPhone)
 
-Do these in your own account, in [Certificates, Identifiers & Profiles](https://developer.apple.com/account/resources). Keep the profile names in the style `<App> Development`; the project rule here is manual signing with profiles you can see in the account, not Xcode-managed automatic signing.
+Do these in your own account, in [Certificates, Identifiers & Profiles](https://developer.apple.com/account/resources). Keep the profile names in the style `<App> Development`; this guide uses manual signing with profiles you can see in the account; Xcode-managed automatic signing was not tried.
 
 0. **Have an Apple Development certificate** (skip if you already have one in your keychain). In Certificates, Identifiers & Profiles choose Certificates > + > Apple Development, and upload a certificate signing request made in Keychain Access (Certificate Assistant > Request a Certificate from a Certificate Authority, saved to disk). Keep the private key that Keychain Access creates on that Mac: the profile in step 3 needs this certificate, and signing needs its private key. Apple's page for the request: [Create a certificate signing request](https://developer.apple.com/help/account/certificates/create-a-certificate-signing-request). The rest of this step is the usual flow and was not checked against an Apple page.
 1. **Create the App ID.** Identifiers > + > App IDs > App, choose Explicit and enter your bundle ID. Under Capabilities tick **Declared Age Range**. Apple's page: [Register an App ID](https://developer.apple.com/help/account/identifiers/register-an-app-id). Apple's entitlement reference, for the key the sample's `Entitlements.plist` sets: [`com.apple.developer.declared-age-range`](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.developer.declared-age-range). In this project the capability was set on the App ID in the account and showed up in the installed profile as `com.apple.developer.declared-age-range` (device-test-plan.md section 6.2); check yours the same way.
@@ -152,6 +154,7 @@ All of the details (opt-in rows, the system sheet it stops on, what is recorded)
   ```
 
   Needs the `maui` workload and the Android SDK platforms 35/36 and build-tools (device-test-plan.md section 4).
+- Launch it: `-t:Install` installs but does not start the app. Open it from the launcher, or run `adb -s <ANDROID_SERIAL> shell monkey -p <your id> 1` (`<your id>` is the bundle ID from section 2, which is also the Android package name).
 - Self-test: `scripts/selftest-android.sh <ANDROID_SERIAL>` (add `--real-play` to also run the opt-in suite against the real Play service). List the serial in `scripts/devices.local` first. It uses Google's `FakeAgeSignalsManager`, needs no account, and exits 0 only if every row passed. The script stops if the install is a Release build. See device-test-plan.md section 7.6.
 - In the app's Debug build a picker offers the Fake scenarios and a "Real manager" option.
 - The real Play manager: Google says the API is blocked for "apps that aren't updated through Google Play" (`APP_NOT_OWNED`); license testers can bypass this for a sideloaded debug build if the package name matches an app in your Play Console and the device's Google Account is a license tester: [Test your Play Age Signals API (beta) integration](https://developer.android.com/google/play/age-signals/test-age-signals-api). This project saw `NotShared` for a sideloaded app with no Play Console app. It has **not** seen the real Play manager return a real age range (README, "Unverified"), so this guide does not say what you would see.

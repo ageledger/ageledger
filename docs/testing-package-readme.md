@@ -15,6 +15,16 @@ AgeSignalsEvaluation e = await service.EvaluateAsync();
 // and with the placeholder policy e.Decision is AgeDecision.AllowedWithParentalConsent.
 ```
 
+The Android fake is used the same way:
+
+```csharp
+var options = new AgeSignalsOptions { Enabled = true, AppVersion = "1.0.0", RuleId = "gate-v1" };
+var fake = new FakeAndroidAgeSignalsBackend();
+fake.SetNextAgeSignalsResult(13, 15);   // lower and upper bound
+var service = new AgeSignalsService(options, new AndroidAgeSignalsProvider(fake));
+// await service.EvaluateAsync() gives Shared, "13-15", AllowedWithParentalConsent
+```
+
 Add it to a test project only (`dotnet add package Ageledger.Testing --prerelease`); do not ship it in an app. It depends on exactly the same version of the Ageledger package (`[version]` in its nuspec), so keep the two packages on the same version. `AgeSignalsService` has no interface, so to stand in for the platform you use these fake backends rather than mocking the service. The fakes use made-up data and never send anything anywhere.
 
 ## Links
