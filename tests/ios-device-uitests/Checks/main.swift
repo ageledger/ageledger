@@ -94,11 +94,12 @@ if ResultParser.mayContinue(sheetSeen: false, lateSheetSeen: false, resultShown:
 if !ResultParser.mayContinue(sheetSeen: false, lateSheetSeen: false, resultShown: true) { print("FAIL: stopped with a result and no sheet"); failures += 1 }
 // 8.1 (e): the normal Evaluate only after a cancelled result with no sheet.
 let returnedText = "Platform: iOS\nState: Shared\nBucket: 18+\nError: None\nDecision: Allowed\nLogged: True\nElapsed ms: 900"
-if ResultParser.mayRunNormalEvaluate(sheetSeen: false, lateSheetSeen: false, resultText: returnedText) { print("FAIL: normal Evaluate after a returned result"); failures += 1 }
-if ResultParser.mayRunNormalEvaluate(sheetSeen: false, lateSheetSeen: false, resultText: "") { print("FAIL: normal Evaluate after an empty result"); failures += 1 }
-if ResultParser.mayRunNormalEvaluate(sheetSeen: false, lateSheetSeen: true, resultText: cancelled) { print("FAIL: normal Evaluate after cancelled with a late sheet"); failures += 1 }
-if ResultParser.mayRunNormalEvaluate(sheetSeen: true, lateSheetSeen: false, resultText: cancelled) { print("FAIL: normal Evaluate after cancelled with a sheet"); failures += 1 }
-if !ResultParser.mayRunNormalEvaluate(sheetSeen: false, lateSheetSeen: false, resultText: cancelled) { print("FAIL: no normal Evaluate after cancelled with no sheet"); failures += 1 }
+if ResultParser.mayRunNormalEvaluate(sheetSeen: false, lateSheetSeen: false, resultText: returnedText, gatesPinned: true) { print("FAIL: normal Evaluate after a returned result"); failures += 1 }
+if ResultParser.mayRunNormalEvaluate(sheetSeen: false, lateSheetSeen: false, resultText: "", gatesPinned: true) { print("FAIL: normal Evaluate after an empty result"); failures += 1 }
+if ResultParser.mayRunNormalEvaluate(sheetSeen: false, lateSheetSeen: true, resultText: cancelled, gatesPinned: true) { print("FAIL: normal Evaluate after cancelled with a late sheet"); failures += 1 }
+if ResultParser.mayRunNormalEvaluate(sheetSeen: true, lateSheetSeen: false, resultText: cancelled, gatesPinned: true) { print("FAIL: normal Evaluate after cancelled with a sheet"); failures += 1 }
+if !ResultParser.mayRunNormalEvaluate(sheetSeen: false, lateSheetSeen: false, resultText: cancelled, gatesPinned: true) { print("FAIL: no normal Evaluate after cancelled with no sheet"); failures += 1 }
+if ResultParser.mayRunNormalEvaluate(sheetSeen: false, lateSheetSeen: false, resultText: cancelled, gatesPinned: false) { print("FAIL: normal Evaluate with the gates not pinned"); failures += 1 }
 // The scenario named for an opt-in row.
 let known = ["Off", "A", "B"]
 if ResultParser.rowScenarioProblem(named: "", known: known, allowed: ["A"]) == nil { print("FAIL: empty scenario accepted"); failures += 1 }

@@ -128,6 +128,7 @@ if [[ $reinstall -eq 1 ]]; then
   [[ -n "$app_path" ]] || { echo "--reinstall-probe needs --app" >&2; exit 2; }
   test_id="ReinstallProbeTests/testReinstallProbe"
 fi
+# check-result-parser.sh relies on this exiting before the device allowlist, the lock and any xcodebuild.
 [[ -n "$udid" && -n "$test_id" ]] || { echo "usage: $0 --udid <udid> (--test <Class[/test]> | --row <row> [--scenario \"<label>\"]) [--app <path>] [--lock-timeout <seconds>]" >&2; exit 2; }
 [[ -z "$app_path" || -d "$app_path" ]] || { echo "--app must be an .app directory" >&2; exit 2; }
 

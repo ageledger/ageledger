@@ -105,8 +105,10 @@ final class PlannedRowTests: XCTestCase {
         var notes: [String] = []
         if let cleared = sample.ensureNoTimeout(), !cleared { notes.append("request timeout could not be set to None") }
         var verdict = "recorded"
-        // Pin the gates the later Evaluate relies on, before any request; a picker that does not read back makes the row unknown.
-        if !(try recording { try sample.setGatesChecked("[13,16,18]") }) { notes.append("the gates picker did not read back [13,16,18]"); verdict = "unknown" }
+        // Pin the gates the later Evaluate relies on, before any request; a picker that does not read back makes the row unknown
+        // and the normal Evaluate is not run.
+        let gatesPinned = try recording { try sample.setGatesChecked("[13,16,18]") }
+        if !gatesPinned { notes.append("the gates picker did not read back [13,16,18]"); verdict = "unknown" }
         let before = sample.resultText
         try recording { try sample.tapAfterScrolling("evaluate-cancel-after") } // N is the sample's default, 0
         let probe = SheetProbe.look(timeout: 10) // as evaluateRow does
@@ -115,11 +117,12 @@ final class PlannedRowTests: XCTestCase {
         var result = SampleApp.parse(text)
         result["Outcome"] = ResultParser.outcome(of: text)
         if let elapsed = ResultParser.elapsedMs(text) { result["ElapsedMs"] = String(elapsed) }
-        let proceed = ResultParser.mayRunNormalEvaluate(sheetSeen: probe.seen, lateSheetSeen: late.seen, resultText: text)
+        let proceed = ResultParser.mayRunNormalEvaluate(sheetSeen: probe.seen, lateSheetSeen: late.seen, resultText: text, gatesPinned: gatesPinned)
         if text.isEmpty { notes.append("no result after the pre-cancelled call") }
         if probe.seen || late.seen { notes.append("a sheet appeared after the pre-cancelled call and was left unanswered") }
         if !proceed { verdict = "unknown" }
-        if !proceed { report.stoppedBy = "the normal Evaluate was not run: the pre-cancelled call did not end as cancelled, or a sheet appeared" }
+        if !gatesPinned { report.stoppedBy = "gates did not read back; the normal Evaluate was not run" }
+        else if !proceed { report.stoppedBy = "the normal Evaluate was not run: the pre-cancelled call did not end as cancelled, or a sheet appeared" }
         report.rows.append(row("i81b-pre-cancelled", probe: probe.seen ? probe : late, result: result, verdict: verdict, notes: notes))
         // 8.1 (b) is the library's rule: a token that is already cancelled ends as cancelled (checked when no sheet got in the way).
         if !(probe.seen || late.seen), !text.isEmpty { XCTAssertEqual(result["Outcome"], "cancelled", "the pre-cancelled call did not end as cancelled") }

@@ -68,9 +68,9 @@ enum ResultParser {
     }
 
     /// Row 8.1 (e): the normal Evaluate after a pre-cancelled one runs only when the first ended as cancelled (outcome "cancelled", not
-    /// merely any result) and no sheet was seen.
-    static func mayRunNormalEvaluate(sheetSeen: Bool, lateSheetSeen: Bool, resultText: String) -> Bool {
-        mayContinue(sheetSeen: sheetSeen, lateSheetSeen: lateSheetSeen, resultShown: !resultText.isEmpty) && outcome(of: resultText) == "cancelled"
+    /// merely any result), no sheet was seen and the gates read back as pinned.
+    static func mayRunNormalEvaluate(sheetSeen: Bool, lateSheetSeen: Bool, resultText: String, gatesPinned: Bool) -> Bool {
+        gatesPinned && mayContinue(sheetSeen: sheetSeen, lateSheetSeen: lateSheetSeen, resultShown: !resultText.isEmpty) && outcome(of: resultText) == "cancelled"
     }
 
     /// Why the scenario named for an opt-in row cannot be used (nil when it can): not set, not a known label, or not one the row allows.
