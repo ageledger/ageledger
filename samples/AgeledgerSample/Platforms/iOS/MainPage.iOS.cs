@@ -15,18 +15,18 @@ public sealed partial class MainPage
             if (service is null) return;
             try { status.Text = "IsEligibleForAgeFeatures: " + ((await service.IsEligibleForAgeFeaturesAsync()) is { } v ? v.ToString() : "n/a"); }
             catch (Exception ex) { status.Text = ex.GetType().Name; }
-        });
+        }, "is-eligible");
         AddButton("GetRequiredRegulatoryFeaturesAsync", async () =>
         {
             if (service is null) return;
             try { status.Text = "RegulatoryFeatures: " + ((await service.GetRequiredRegulatoryFeaturesAsync()) is { } v ? v.ToString() : "n/a"); }
             catch (Exception ex) { status.Text = ex.GetType().Name; }
-        });
+        }, "regulatory-features");
         AddButton("ShowSignificantUpdateAcknowledgmentAsync", async () =>
         {
             if (service is null) return;
             try { status.Text = "Acknowledgment: " + await service.ShowSignificantUpdateAcknowledgmentAsync("Sample update"); }
             catch (Exception ex) { status.Text = ex.GetType().Name; }
-        });
+        }, "significant-update");
     }
 }

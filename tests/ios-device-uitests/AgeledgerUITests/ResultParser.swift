@@ -61,6 +61,26 @@ enum ResultParser {
         alerts.firstIndex { !($0.isAuth && !$0.visible) }
     }
 
+    /// After a request was started, whether a row may do anything more (scroll, tap, relaunch): only when a result was shown and no
+    /// sheet was seen by the probe right after the start or by any later probe. Otherwise the row stops; nothing is gestured over a sheet.
+    static func mayContinue(sheetSeen: Bool, lateSheetSeen: Bool, resultShown: Bool) -> Bool {
+        resultShown && !sheetSeen && !lateSheetSeen
+    }
+
+    /// Row 8.1 (e): the normal Evaluate after a pre-cancelled one runs only when the first ended as cancelled (outcome "cancelled", not
+    /// merely any result), no sheet was seen and the gates read back as pinned.
+    static func mayRunNormalEvaluate(sheetSeen: Bool, lateSheetSeen: Bool, resultText: String, gatesPinned: Bool) -> Bool {
+        gatesPinned && mayContinue(sheetSeen: sheetSeen, lateSheetSeen: lateSheetSeen, resultShown: !resultText.isEmpty) && outcome(of: resultText) == "cancelled"
+    }
+
+    /// Why the scenario named for an opt-in row cannot be used (nil when it can): not set, not a known label, or not one the row allows.
+    static func rowScenarioProblem(named: String, known: [String], allowed: [String]) -> String? {
+        if named.isEmpty { return "ROW_SCENARIO is not set; set the sandbox scenario by hand and pass it with --scenario" }
+        if !known.contains(named) { return "ROW_SCENARIO is not a known scenario label" }
+        if !allowed.contains(named) { return "this row cannot use the scenario \"\(named)\"; allowed: \(allowed.joined(separator: " | "))" }
+        return nil
+    }
+
     enum LaunchGuard { case proceed, stop }
 
     /// Whether the I18 row may start. The sample's "Evaluate at launch" must be read as off: when it is on, or could not be read, a

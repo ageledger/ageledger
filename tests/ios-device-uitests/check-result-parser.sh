@@ -6,3 +6,22 @@ tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 swiftc -o "$tmp/check" "$here/AgeledgerUITests/ResultParser.swift" "$here/Checks/main.swift"
 "$tmp/check"
+
+# Keep only assignments between S_1315 and ALL_SCENARIOS in the script: this range is executed here.
+# The script's scenario labels must equal SandboxSettings.scenarios (same labels, same order).
+script="$here/../../scripts/ios-uitests.sh"
+from_script="$(bash -c "$(sed -n '/^S_1315=/,/^ALL_SCENARIOS=/p' "$script"); printf '%s\n' \"\${ALL_SCENARIOS[@]}\"")"
+from_swift="$(sed -n '/static let scenarios = \[/,/^    \]/p' "$here/AgeledgerUITests/SandboxSettings.swift" | grep -o '"[^"]*"' | sed 's/^"//; s/"$//')"
+if [[ -z "$from_script" || "$from_script" != "$from_swift" ]]; then
+  echo "FAIL: the scenario list in scripts/ios-uitests.sh differs from SandboxSettings.scenarios" >&2
+  exit 1
+fi
+echo "scenario lists equal"
+
+# The usage line prints without a device (it exits before the allowlist, the lock and any xcodebuild).
+usage_out="$("$here/../../scripts/ios-uitests.sh" --row i7b --scenario "User 13-15, significant change approved" 2>&1 || true)"
+if ! grep -q '^usage:' <<<"$usage_out"; then
+  echo "FAIL: scripts/ios-uitests.sh did not print its usage line" >&2
+  exit 1
+fi
+echo "usage line ok"

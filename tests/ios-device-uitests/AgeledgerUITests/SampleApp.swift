@@ -7,9 +7,11 @@ struct SampleApp {
     static let bundleId = ProcessInfo.processInfo.environment["AGELEDGER_SAMPLE_ID"] ?? "com.ageledger.sample"
     let app = XCUIApplication(bundleIdentifier: SampleApp.bundleId)
 
-    /// Terminates (if running) and launches a fresh process.
-    func relaunch() {
+    /// Terminates (if running) and launches a fresh process. `arguments` are launch arguments for this launch only (the next
+    /// relaunch without them clears them again), such as the Debug sample's `-ageledger-launch-evaluate-once 1`.
+    func relaunch(arguments: [String] = []) {
         app.terminate()
+        app.launchArguments = arguments
         app.launch()
         _ = app.buttons["evaluate"].waitForExistence(timeout: 15)
     }
@@ -30,6 +32,46 @@ struct SampleApp {
     }
 
     func tapEvaluate() throws { try tapButton("evaluate") }
+
+    /// Picks MinimumAge from the Debug sample's preset picker ("13", "16" or "18"). Returns true when the picker then shows it.
+    func setMinimumAgePreset(_ name: String) throws -> Bool {
+        try pick("minimum-age-preset", name)
+        return pickerValue("minimum-age-preset") == name
+    }
+
+    /// Like setGates, and returns true when the picker then shows the preset.
+    func setGatesChecked(_ name: String) throws -> Bool {
+        try pick("age-gates", name)
+        return pickerValue("age-gates") == name
+    }
+
+    /// Taps a button after swiping the sample's scroll view up (at most `maxSwipes` times) until it is hittable. Call it only while no
+    /// request is in flight and no sheet can be up (before the Evaluate-like action it starts): a swipe could land on Apple's sheet.
+    /// Throws, tapping nothing, when the button is still not hittable or the sample is not the foreground app.
+    func tapAfterScrolling(_ id: String, maxSwipes: Int = 4) throws {
+        let button = app.buttons[id]
+        guard button.waitForExistence(timeout: 8) else { throw SandboxSettingsError.elementNotFound("button \(id)") }
+        var swipes = 0
+        while swipes < maxSwipes, app.state == .runningForeground, !button.isHittable {
+            let scroll = app.scrollViews.firstMatch
+            if scroll.exists { scroll.swipeUp() } else { app.swipeUp() }
+            swipes += 1
+        }
+        guard app.state == .runningForeground, button.isHittable else { throw SandboxSettingsError.refusedTap("button \(id) is not hittable or the sample is not in the foreground; not tapping") }
+        button.tap()
+    }
+
+    /// Swipes the sample's scroll view down (at most 4 times) until the button is hittable; does nothing when it already is. Same caution
+    /// as tapAfterScrolling: only while nothing is in flight and no sheet can be up.
+    func scrollToTop(until id: String) {
+        let button = app.buttons[id]
+        var swipes = 0
+        while swipes < 4, app.state == .runningForeground, !button.isHittable {
+            let scroll = app.scrollViews.firstMatch
+            if scroll.exists { scroll.swipeDown() } else { app.swipeDown() }
+            swipes += 1
+        }
+    }
 
     /// True when the sample has the request-timeout picker (an older sample does not).
     /// Waits up to 5 s for it (a picker is a text field on iOS, but any element type with the id counts).
@@ -117,19 +159,35 @@ struct SampleApp {
         return snap.label
     }
 
-    /// Waits until the result label shows an outcome, or the timeout passes. Returns the label.
-    func waitForResult(timeout: TimeInterval) -> String {
+    /// Waits until the result label shows an outcome, or the timeout passes. Returns the label. With `differentFrom` (the label before
+    /// this action) an unchanged label does not count, so an older result is not taken for the new one.
+    func waitForResult(timeout: TimeInterval, differentFrom stale: String? = nil) -> String {
         let end = Date().addingTimeInterval(timeout)
         while Date() < end {
             let text = resultText
-            if text.contains("State:") || text.contains("Outcome:") || text.contains("Not evaluated") || text.contains("Exception") { return text }
+            if text != stale, text.contains("State:") || text.contains("Outcome:") || text.contains("Not evaluated") || text.contains("Exception") { return text }
             Thread.sleep(forTimeInterval: 0.5)
         }
-        return resultText
+        let last = resultText
+        return last == stale ? "" : last
     }
 
     /// Parses the result label by key name (see ResultParser); elapsed time is left out.
     static func parse(_ text: String) -> [String: String] { ResultParser.parse(text) }
+
+    /// Waits until the status line differs from `before` (the sample's own fixed texts and exception type names), or the timeout passes.
+    func waitForStatus(changedFrom before: String, timeout: TimeInterval) -> String {
+        let end = Date().addingTimeInterval(timeout)
+        while Date() < end {
+            let text = statusText
+            if text != before, !text.isEmpty { return text }
+            Thread.sleep(forTimeInterval: 0.5)
+        }
+        return statusText
+    }
+
+    /// The gates picker's current text, read without scrolling or tapping (nil when it cannot be read).
+    var gatesValue: String? { pickerValue("age-gates") }
 
     func screenshot() -> XCUIScreenshot { app.screenshot() }
 
