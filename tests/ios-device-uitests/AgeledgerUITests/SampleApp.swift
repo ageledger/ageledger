@@ -186,6 +186,9 @@ struct SampleApp {
         return statusText
     }
 
+    /// The gates picker's current text, read without scrolling or tapping (nil when it cannot be read).
+    var gatesValue: String? { pickerValue("age-gates") }
+
     func screenshot() -> XCUIScreenshot { app.screenshot() }
 
     private func pickerValue(_ id: String) -> String? {

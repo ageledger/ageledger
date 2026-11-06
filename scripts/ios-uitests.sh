@@ -30,7 +30,7 @@
 # label the row cannot use and prints which one to set. The test cannot read the scenario back, so it records it as declared. The scenario
 # is not changed, so these runs print NOTHING-CHANGED at the end and need no restore. The test itself asks for no Touch ID; an Apple
 # screen (from I14, or the age sheet) might: if one does, touch the sensor or leave it, and never tap Cancel. A row run refuses to start
-# while a restore marker exists (it never restores): finish that with a default run, or check the phone by hand and delete the marker.
+# while a restore marker exists (it never restores): finish that with a default run (it restores first, then runs the whole exploration), or check the phone by hand and delete the marker.
 # The phone may ask for Touch ID once, when Settings opens the sandbox account: touch the sensor when the log shows
 # "ACTION NEEDED: touch the Touch ID sensor on the iPhone now (120 s)" (the test waits up to 120 s and never taps Cancel). If the
 # line does not show live, watch the phone. A failure-path restore from outside may ask once more.
@@ -98,6 +98,9 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 if [[ -n "$row_test" && $reinstall -eq 1 ]]; then echo "use --row or --reinstall-probe, not both" >&2; exit 2; fi
+# The new rows never touch Settings; a default-style run of them (or the restore flags) would not fit that.
+if [[ -z "$row_name" && "$test_id" == PlannedRowTests* ]]; then echo "run the PlannedRowTests rows with --row (a --test run would first restore a pending scenario through Settings)" >&2; exit 2; fi
+if [[ -n "$row_name" && $assume_off -eq 1 ]]; then echo "--assume-original-off does not apply to these rows (they do not read the scenario)" >&2; exit 2; fi
 if [[ -n "$row_test" ]]; then
   [[ -z "$test_id" ]] || { echo "use either --row or --test, not both" >&2; exit 2; }
   test_id="$row_test"
@@ -125,7 +128,7 @@ if [[ $reinstall -eq 1 ]]; then
   [[ -n "$app_path" ]] || { echo "--reinstall-probe needs --app" >&2; exit 2; }
   test_id="ReinstallProbeTests/testReinstallProbe"
 fi
-[[ -n "$udid" && -n "$test_id" ]] || { echo "usage: $0 --udid <udid> (--test <Class[/test]> | --row <row> [--scenario "<label>"]) [--app <path>] [--lock-timeout <seconds>]" >&2; exit 2; }
+[[ -n "$udid" && -n "$test_id" ]] || { echo "usage: $0 --udid <udid> (--test <Class[/test]> | --row <row> [--scenario \"<label>\"]) [--app <path>] [--lock-timeout <seconds>]" >&2; exit 2; }
 [[ -z "$app_path" || -d "$app_path" ]] || { echo "--app must be an .app directory" >&2; exit 2; }
 
 # Allowlist: only devices listed in the untracked file.
@@ -440,7 +443,7 @@ if other_test_running; then echo "an xcodebuild test for this device started mea
 # A row run never restores anything (it does not change the scenario), so a restore marker left by an earlier run stops it here, before
 # anything is generated, installed or run.
 if [[ -n "$row_name" && -f "$pending" ]]; then
-  echo "a restore marker exists ($pending, holding: $(cat "$pending")). It can come from an earlier default run, or from an interrupted row run (a killed run leaves 'unknown'). A row run does not restore: finish the restore with a default run (--test ExplorationTests/testExploration) if it holds a scenario label, or check the Age Assurance scenario on the phone by hand and delete the file." >&2
+  echo "a restore marker exists ($pending, holding: $(cat "$pending")). It can come from an earlier default run, or from an interrupted row run (a killed run leaves 'unknown'). A row run does not restore: finish the restore with a default run (--test ExplorationTests/testExploration) if it holds a scenario label (a default run restores first and then runs the whole exploration: Touch ID, every scenario, another restore), or check the Age Assurance scenario on the phone by hand and delete the file." >&2
   exit 7
 fi
 

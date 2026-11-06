@@ -105,6 +105,8 @@ final class PlannedRowTests: XCTestCase {
         var notes: [String] = []
         if let cleared = sample.ensureNoTimeout(), !cleared { notes.append("request timeout could not be set to None") }
         var verdict = "recorded"
+        // Pin the gates the later Evaluate relies on, before any request; a picker that does not read back makes the row unknown.
+        if !(try recording { try sample.setGatesChecked("[13,16,18]") }) { notes.append("the gates picker did not read back [13,16,18]"); verdict = "unknown" }
         let before = sample.resultText
         try recording { try sample.tapAfterScrolling("evaluate-cancel-after") } // N is the sample's default, 0
         let probe = SheetProbe.look(timeout: 10) // as evaluateRow does
@@ -117,13 +119,11 @@ final class PlannedRowTests: XCTestCase {
         if text.isEmpty { notes.append("no result after the pre-cancelled call") }
         if probe.seen || late.seen { notes.append("a sheet appeared after the pre-cancelled call and was left unanswered") }
         if !proceed { verdict = "unknown" }
+        if !proceed { report.stoppedBy = "the normal Evaluate was not run: the pre-cancelled call did not end as cancelled, or a sheet appeared" }
         report.rows.append(row("i81b-pre-cancelled", probe: probe.seen ? probe : late, result: result, verdict: verdict, notes: notes))
         // 8.1 (b) is the library's rule: a token that is already cancelled ends as cancelled (checked when no sheet got in the way).
         if !(probe.seen || late.seen), !text.isEmpty { XCTAssertEqual(result["Outcome"], "cancelled", "the pre-cancelled call did not end as cancelled") }
-        guard proceed else {
-            report.stoppedBy = "the normal Evaluate was not run: the pre-cancelled call did not end as cancelled, or a sheet appeared"
-            return
-        }
+        guard proceed else { return }
 
         // Nothing is in flight and no sheet was seen. Probe once more right before any gesture, then scroll back only as far as Evaluate.
         let again = SheetProbe.look(timeout: 2)
@@ -161,6 +161,8 @@ final class PlannedRowTests: XCTestCase {
             result["Outcome"] = ResultParser.outcome(of: text)
             if let elapsed = ResultParser.elapsedMs(text) { result["ElapsedMs"] = String(elapsed) }
             // The Debug sample puts this marker in its status line when it acts on the launch argument.
+            if let gates = sample.gatesValue, gates != "[13,16,18]" { notes.append("the gates picker showed \(gates), not [13,16,18]"); verdict = "unknown" }
+            else if sample.gatesValue == nil { notes.append("the gates picker could not be read"); verdict = "unknown" }
             if !status.contains("Launch evaluate (argument)") { notes.append("the sample did not report acting on the launch argument (status marker missing)"); verdict = "unknown" }
             if text.isEmpty { notes.append("no result within the 30 s wait; foreground: \(foregroundSummary(sample, includeSettings: false))"); verdict = "unknown" }
             if probe.seen || late.seen { notes.append("a sheet appeared and was left unanswered"); verdict = "unknown" }
