@@ -34,7 +34,7 @@ runs:
         echo "DEVELOPER_DIR=$XCODE_PATH/Contents/Developer" >> "$GITHUB_ENV"
         echo "MD_APPLE_SDK_ROOT=$XCODE_PATH" >> "$GITHUB_ENV"
         DEVELOPER_DIR="$XCODE_PATH/Contents/Developer" xcodebuild -version
-    - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+    - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
       env:
         # A folder this job owns, so the workload install below writes to a user-owned SDK.
         DOTNET_INSTALL_DIR: ${{ runner.temp }}/dotnet
