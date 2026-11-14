@@ -4,20 +4,34 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## Unreleased
 
+## 0.1.0-preview.3 (2026-11-13)
+
+### Added
+
+- New opt-in iPhone UI-test rows, in `tests/ios-device-uitests` (`scripts/ios-uitests.sh --row i7b|i7c|i11|i12|i13|i14|i81e|i83 --scenario "<label>"`): I7b, I7c, I11, I12, I13, I14, 8.1 (e) (with the sheet part of 8.1 (b)) and 8.3 (iOS). They never open Settings and do not change the sandbox scenario (the person sets it by hand and names it), and record Apple's answers rather than asserting them. The test itself asks for no Touch ID; an Apple screen (for example from I14) might, and the test never answers it. They stop doing anything more once a sheet has been seen or no result has been shown, and refuse to start while a restore marker exists. I14 may record an acknowledgment in the sandbox account, and the rows leave the sample's Enabled switch on. The sample gained a MinimumAge preset picker and a launch argument for one evaluation at launch (both Debug-only), and accessibility identifiers on a few buttons (these are in Release builds too). Sample UI tests only; nothing in the library changed. Not run on a device yet.
+- The Debug self-test has a new row, D1, that resolves the service from the app's own container and checks the saved Enabled setting and the platform of the provider; it also builds a second container through the same registration with Enabled forced on and resolves the service, which on Android proves the activity registration.
+
 ### Fixed
 
 - The iOS framework bundled in the package now carries a valid ad-hoc signature (in 0.1.0-preview.1 and 0.1.0-preview.2 its signature did not match its contents: the device slice was unsigned and the Simulator slice had a stale one). CI now verifies the signature in the package and in the sample app. This has no effect on apps built with code signing on (the default), which re-sign the framework. In a default-signing Simulator build of the sample, the bundle, main binary, framework and the two runtime libraries checked (libmonosgen-2.0, libSystem.Native) verified with `codesign -vv --strict`, and the app launched and was still running after 10 s (control run, 2026-10-30); in a device build the framework verified with the developer identity (not run on a device).
 
 ### Changed
 
+- Every Evaluate row of the existing UI tests now also probes for a sheet for 1 s after the result (a sheet seen then leaves the row unknown), and the summary shows outcome and error. Sample UI tests only; nothing in the library changed. Not run on a device yet.
 - Docs: README quick start for .NET MAUI (page example, iOS setup, what to expect while testing), the option defaults and the decision each state gives, timeouts in the examples, an Android fake example, the shipped/unshipped public API note, the Texas court events with sources, and smaller wording fixes in the README, the package readmes and the sample guide. `.gitignore` now also covers `*.keystore` and `*.jks`.
 - Docs: to run an app on the Simulator, keep code signing on (the default; Simulator builds are signed ad-hoc, and whether that works on a Mac with no developer identity was not checked). `-p:EnableCodeSigning=false` is for compile-only builds, as in CI: observed with the iOS 27 Simulator runtime, an app built with it was killed at launch ("Code Signature Invalid"), because in that build the app's main binary and the .NET runtime libraries were not validly signed.
-- New opt-in iPhone UI-test rows, in `tests/ios-device-uitests` (`scripts/ios-uitests.sh --row i7b|i7c|i11|i12|i13|i14|i81e|i83 --scenario "<label>"`): I7b, I7c, I11, I12, I13, I14, 8.1 (e) (with the sheet part of 8.1 (b)) and 8.3 (iOS). They never open Settings and do not change the sandbox scenario (the person sets it by hand and names it), and record Apple's answers rather than asserting them. The test itself asks for no Touch ID; an Apple screen (for example from I14) might, and the test never answers it. They stop doing anything more once a sheet has been seen or no result has been shown, and refuse to start while a restore marker exists. I14 may record an acknowledgment in the sandbox account, and the rows leave the sample's Enabled switch on. The sample gained a MinimumAge preset picker and a launch argument for one evaluation at launch (both Debug-only), and accessibility identifiers on a few buttons (these are in Release builds too). Every Evaluate row of the existing UI tests now also probes for a sheet for 1 s after the result (a sheet seen then leaves the row unknown), and the summary shows outcome and error. Sample UI tests only; nothing in the library changed. Not run on a device yet.
 - The iPhone UI test for row I18 now waits for the request-timeout picker and the Cancel button separately, names the missing one in its error, attaches the sample's accessibility tree (`sample-tree`) when one is missing, and scrolls Cancel into view before Evaluate (never while a request is in flight). Sample UI test only; nothing in the library changed. Not run on a device yet.
 - The sample app now registers the service through `AddAgeledger`, `AddAgeledgerFileLog` and (Android) `AddAgeledgerActivity` instead of constructing it by hand; the page builds a fresh container whenever its settings change. In Debug builds the Fake backends used by the sample's Fake rows and by the self-test are still built by hand. Nothing in the library changed.
-- The Debug self-test has a new row, D1, that resolves the service from the app's own container and checks the saved Enabled setting and the platform of the provider; it also builds a second container through the same registration with Enabled forced on and resolves the service, which on Android proves the activity registration.
 - Device runs of row D1 are recorded in `docs/device-test-results.md` (Pixel 4a and iPhone SE, both passed), and the README "Unverified" entry about the dependency injection registrations being compile-only is narrowed to what was not run.
 - The public API baseline files now record the 0.1.0-preview.2 API as shipped.
+
+### Not verified
+
+- The new iPhone UI-test rows (I7b, I7c, I11, I12, I13, I14, 8.1 (e) with the sheet part of 8.1 (b), and 8.3) and the 1 s sheet probe added to the existing Evaluate rows have not run on a device.
+- The changed I18 UI test (separate waits for the request-timeout picker and the Cancel button, Cancel scrolled into view) has not run on a device. Cancellation with the sandbox Off scenario has never been exercised on a device: in both I18 runs (2026-10-27 and 2026-10-30) the Cancel pass did not run.
+- A device build with the newly ad-hoc-signed framework has not been run on a device. In a device build the framework verified with the developer identity; device builds with the earlier framework (0.1.0-preview.2 and before) ran on an iPhone.
+- Row D1 ran on a Pixel 4a and an iPhone SE, but no evaluation through the container-built service against the real Play or Apple backends has run, and the Mac Catalyst and Windows path (`NoAgeSignalsProvider` in a real app) has not run.
+- The "Unverified" list in `README.md` is the full list.
 
 ## 0.1.0-preview.2 (2026-10-30)
 
